@@ -1,0 +1,9 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Kill any Tailwind base border defaults that cause white lines */
+*, *::before, *::after {
+  border-color: transparent;
+  box-sizing: border-box;
+}

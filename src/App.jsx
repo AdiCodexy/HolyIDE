@@ -1,0 +1,237 @@
+import { useState, useEffect, useRef, useCallback } from "react";
+import "./index.css";
+import "./App.css";
+import Sidebar from "./components/Sidebar";
+import CodeBlock from "./components/CodeBlock";
+import Terminal from "./components/Terminal";
+import ProfilePage from "./components/ProfilePage";
+import HomePage from "./components/HomePage";
+
+// ── Clamp helper ───────────────────────────────────────────────────
+const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+
+// ── Resize handle component ────────────────────────────────────────
+// direction: "col" (vertical bar) | "row" (horizontal bar)
+// onDragStart: (e) => void
+function ResizeHandle({ direction, onDragStart }) {
+  const isCol = direction === "col";
+
+  return (
+    <div
+      onMouseDown={onDragStart}
+      style={{
+        // Hit zone — wider/taller than the visible line for easy grabbing
+        flexShrink: 0,
+        width: isCol ? "5px" : "100%",
+        height: isCol ? "100%" : "5px",
+        cursor: isCol ? "col-resize" : "row-resize",
+        position: "relative",
+        zIndex: 10,
+        background: "transparent",
+        // Prevent text selection while dragging
+        userSelect: "none",
+      }}
+    >
+      {/* Visible 1px indicator line, centred inside the hit zone */}
+      <div style={{
+        position: "absolute",
+        // Col handle: vertical line at horizontal centre
+        ...(isCol ? {
+          top: 0, bottom: 0,
+          left: "50%",
+          width: "1px",
+          transform: "translateX(-50%)",
+        } : {
+          left: 0, right: 0,
+          top: "50%",
+          height: "1px",
+          transform: "translateY(-50%)",
+        }),
+        background: "rgba(255, 255, 255, 0.04)",
+        transition: "background 100ms ease",
+        // Brighten on parent hover via CSS — we handle it with onMouseEnter/Leave
+        pointerEvents: "none",
+      }} />
+    </div>
+  );
+}
+
+// ── Main layout ────────────────────────────────────────────────────
+export default function App() {
+  const [activePaperId, setActivePaperId] = useState("py-1");
+  const [openTabs, setOpenTabs] = useState(["py-1"]);
+  const [showProfile, setShowProfile] = useState(false);
+  const [currentView, setCurrentView] = useState("home");
+  // Which subject to show in sidebar (null = all)
+  const [subjectFilter, setSubjectFilter] = useState(null);
+
+  // When a question is selected from the sidebar, add it as a tab (if not already) and switch to it
+  const handleSelect = useCallback((id) => {
+    setOpenTabs(prev => prev.includes(id) ? prev : [...prev, id]);
+    setActivePaperId(id);
+  }, []);
+
+  // Close a tab — switch to the nearest remaining tab
+  const handleCloseTab = useCallback((id) => {
+    setOpenTabs(prev => {
+      const next = prev.filter(t => t !== id);
+      if (next.length === 0) {
+        // Always keep at least one tab open
+        return prev;
+      }
+      // If we're closing the active tab, switch to the nearest one
+      if (id === activePaperId) {
+        const idx = prev.indexOf(id);
+        const newActive = next[Math.min(idx, next.length - 1)];
+        setActivePaperId(newActive);
+      }
+      return next;
+    });
+  }, [activePaperId]);
+
+  // Sidebar width (px) — clamped [160, 480]
+  const [sidebarWidth, setSidebarWidth] = useState(250);
+
+  // Terminal height (px) — clamped [80, window - 120]
+  const [terminalHeight, setTerminalHeight] = useState(
+    () => Math.round(window.innerHeight * 0.30)
+  );
+
+  // Which axis is currently being dragged: null | "sidebar" | "terminal"
+  const dragging = useRef(null);
+  const dragOrigin = useRef(0);   // mouseX or mouseY at drag start
+  const sizeAtDrag = useRef(0);   // width/height at drag start
+
+  // ── Sidebar drag ────────────────────────────────────────────────
+  const startSidebarDrag = useCallback((e) => {
+    e.preventDefault();
+    dragging.current = "sidebar";
+    dragOrigin.current = e.clientX;
+    sizeAtDrag.current = sidebarWidth;
+  }, [sidebarWidth]);
+
+  // ── Terminal drag ───────────────────────────────────────────────
+  const startTerminalDrag = useCallback((e) => {
+    e.preventDefault();
+    dragging.current = "terminal";
+    dragOrigin.current = e.clientY;
+    sizeAtDrag.current = terminalHeight;
+  }, [terminalHeight]);
+
+  // ── Global mouse handlers ───────────────────────────────────────
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!dragging.current) return;
+
+      if (dragging.current === "sidebar") {
+        const delta = e.clientX - dragOrigin.current;
+        setSidebarWidth(clamp(sizeAtDrag.current + delta, 160, 480));
+      }
+
+      if (dragging.current === "terminal") {
+        // Dragging up → terminal grows (delta is negative → subtract)
+        const delta = e.clientY - dragOrigin.current;
+        const maxH = window.innerHeight - 120;   // leave at least 120px for editor
+        setTerminalHeight(clamp(sizeAtDrag.current - delta, 80, maxH));
+      }
+    };
+
+    const onUp = () => { dragging.current = null; };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []); // stable — refs carry latest values, no deps needed
+
+  return (
+    <>
+      {/* ── Full-screen Home Page ───────────────────────────────── */}
+      {currentView === "home" && (
+        <HomePage
+          onOpenIDE={() => { setSubjectFilter(null); setCurrentView("ide"); }}
+          onOpenSubject={(subjectName, questionId) => {
+            setSubjectFilter(subjectName);
+            handleSelect(questionId);
+            setCurrentView("ide");
+          }}
+        />
+      )}
+
+      {/* ── Full-screen Profile Overlay ─────────────────────────── */}
+      {showProfile && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 100,
+          background: "#0A0A0A",
+        }}>
+          <ProfilePage onClose={() => setShowProfile(false)} />
+        </div>
+      )}
+
+      {/* ── IDE Layout ─────────────────────────────────────────── */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          display: "flex",
+          background: "#0A0A0A",
+          overflow: "hidden",
+          cursor: "inherit",
+        }}
+      >
+        {/* ── Sidebar (controlled width) ─────────────────────── */}
+        <Sidebar
+          activeId={activePaperId}
+          onSelect={(id) => { handleSelect(id); setShowProfile(false); }}
+          width={sidebarWidth}
+          onOpenProfile={() => setShowProfile(true)}
+          onGoHome={() => { setCurrentView("home"); setSubjectFilter(null); }}
+          subjectFilter={subjectFilter}
+        />
+
+        {/* ── Vertical resize handle ─────────────────────────── */}
+        <ResizeHandle direction="col" onDragStart={startSidebarDrag} />
+
+        {/* ── Right column ─────────────────────────────────────── */}
+        <div style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          minWidth: 0,
+        }}>
+          {/* Editor */}
+          <div style={{
+            flex: 1,
+            overflow: "hidden",
+            display: "flex",
+            minHeight: 0,
+          }}>
+            <CodeBlock
+              paperId={activePaperId}
+              openTabs={openTabs}
+              onSelectTab={setActivePaperId}
+              onCloseTab={handleCloseTab}
+            />
+          </div>
+
+          {/* ── Horizontal resize handle ──────────────────────── */}
+          <ResizeHandle direction="row" onDragStart={startTerminalDrag} />
+
+          {/* Terminal */}
+          <div style={{
+            height: terminalHeight,
+            flexShrink: 0,
+            overflow: "hidden",
+          }}>
+            <Terminal />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
