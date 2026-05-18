@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Editor } from "@monaco-editor/react";
-import { io } from "socket.io-client";
 
 /* ── Helper to map snippet language strings to Monaco language IDs ── */
 function getMonacoLanguage(langString) {
@@ -18,37 +17,47 @@ function getMonacoLanguage(langString) {
 export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onCloseTab }) {
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [activeProcessId, setActiveProcessId] = useState(null);
+  const [isExecuting, setIsExecuting] = useState(false);
   const saveTimeoutRef = useRef(null);
 
-  // Listen for process exit to reset the Run button
-  useEffect(() => {
-    const socket = io("http://localhost:3001");
-    socket.on("exit", ({ processId, code }) => {
-      setActiveProcessId(prev => (prev === processId ? null : prev));
-    });
-    return () => socket.disconnect();
-  }, []);
+  const writeToTerminal = (text, type = 'output') => {
+    window.dispatchEvent(new CustomEvent('terminal-output', { detail: { text, type } }));
+  };
 
   // Fetch file content when paperId changes
   useEffect(() => {
     if (!paperId) return;
     
     setIsLoading(true);
-    fetch(`http://localhost:3001/api/fs/file?path=${encodeURIComponent(paperId)}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to fetch file');
-        return res.json();
-      })
-      .then(data => {
-        setContent(data.content || "");
+    import("../supabaseClient").then(({ supabase }) => {
+      if (!supabase) {
         setIsLoading(false);
-      })
-      .catch(err => {
-        console.error(err);
-        setContent("");
-        setIsLoading(false);
+        return;
+      }
+      
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) {
+          setContent("");
+          setIsLoading(false);
+          return;
+        }
+
+        supabase
+          .from('user_code')
+          .select('code_content')
+          .eq('user_id', user.id)
+          .eq('file_path', paperId)
+          .single()
+          .then(({ data, error }) => {
+            if (data && data.code_content) {
+              setContent(data.code_content);
+            } else {
+              setContent(""); // Blank default if no saved code
+            }
+            setIsLoading(false);
+          });
       });
+    });
   }, [paperId]);
 
   const handleEditorChange = (value) => {
@@ -60,12 +69,24 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
     }
     
     saveTimeoutRef.current = setTimeout(() => {
-      fetch('http://localhost:3001/api/fs/file', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: paperId, content: value })
-      }).catch(err => console.error('Save failed:', err));
-    }, 1000);
+      import("../supabaseClient").then(({ supabase }) => {
+        if (!supabase) return;
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (!user) return;
+          
+          supabase
+            .from('user_code')
+            .upsert({
+              user_id: user.id,
+              file_path: paperId,
+              code_content: value
+            }, { onConflict: 'user_id, file_path' })
+            .then(({ error }) => {
+              if (error) console.error('Auto-save failed:', error);
+            });
+        });
+      });
+    }, 2000);
   };
 
   // Extract info from path e.g. "Python\file.py"
@@ -228,64 +249,61 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
         }}>
           {/* Action Buttons */}
           <div style={{ display: "flex", gap: "6px" }}>
-            {activeProcessId ? (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  fetch('http://localhost:3001/api/stop', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ processId: activeProcessId })
-                  }).then(() => setActiveProcessId(null));
-                }}
-                style={{
-                  background: "rgba(248, 113, 113, 0.1)",
-                  border: "1px solid rgba(248, 113, 113, 0.3)",
-                  color: "#F87171",
-                  borderRadius: "6px",
-                  padding: "4px 10px",
-                  fontSize: "9px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px"
-                }}
-              >
-                <div style={{ width: "6px", height: "6px", background: "#F87171", borderRadius: "1px" }} />
-                STOP
-              </button>
-            ) : (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  fetch('http://localhost:3001/api/run', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ path: paperId })
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!content.trim() || isExecuting) return;
+
+                writeToTerminal('', 'clear');
+                writeToTerminal(`> Sending ${currentFileInfo.filename} to Cloud Execution API...\n`);
+                
+                setIsExecuting(true);
+
+                const lang = monacoLang === "python" ? "python" : "java";
+
+                fetch('https://emkc.org/api/v2/piston/execute', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    language: lang,
+                    version: "*",
+                    files: [{ name: currentFileInfo.filename, content: content }]
                   })
-                  .then(res => res.json())
-                  .then(data => {
-                    if (data.processId) setActiveProcessId(data.processId);
-                  });
-                }}
-                style={{
-                  background: "rgba(52, 211, 153, 0.1)",
-                  border: "1px solid rgba(52, 211, 153, 0.3)",
-                  color: "#34D399",
-                  borderRadius: "6px",
-                  padding: "4px 10px",
-                  fontSize: "9px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px"
-                }}
-              >
-                ▶ RUN
-              </button>
-            )}
+                })
+                .then(res => res.json())
+                .then(data => {
+                  setIsExecuting(false);
+                  if (data.message) {
+                    writeToTerminal(`\nError: ${data.message}\n`);
+                  } else if (data.run) {
+                    if (data.run.stdout) writeToTerminal(data.run.stdout);
+                    if (data.run.stderr) writeToTerminal(data.run.stderr);
+                    writeToTerminal(`\n> Process exited with code ${data.run.code}\n`);
+                  }
+                })
+                .catch(err => {
+                  setIsExecuting(false);
+                  writeToTerminal(`\nExecution Error: Failed to connect to sandbox API. ${err.message}\n`);
+                });
+              }}
+              disabled={isExecuting}
+              style={{
+                background: isExecuting ? "rgba(255, 255, 255, 0.1)" : "rgba(52, 211, 153, 0.1)",
+                border: isExecuting ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(52, 211, 153, 0.3)",
+                color: isExecuting ? "#A3A3A3" : "#34D399",
+                borderRadius: "6px",
+                padding: "4px 10px",
+                fontSize: "9px",
+                fontWeight: 600,
+                cursor: isExecuting ? "not-allowed" : "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                transition: "all 200ms ease"
+              }}
+            >
+              {isExecuting ? "⏳ RUNNING..." : "▶ RUN"}
+            </button>
           </div>
 
           {/* Language label */}

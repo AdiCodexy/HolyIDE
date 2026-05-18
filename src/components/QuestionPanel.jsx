@@ -7,21 +7,56 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSolution, setShowSolution] = useState(false); // Collapsible status toggle state for solutions
+  const [isAdmin, setIsAdmin] = useState(false);
 
+  // Define your exact admin account authorization constraint string
+  const ADMIN_EMAIL = "adityakarale7@gmail.com";
+
+  // 1. Verify user profile properties to safely manage admin interface permissions
+  useEffect(() => {
+    async function checkAdminPrivileges() {
+      if (!isSupabaseConfigured) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && user.email === ADMIN_EMAIL) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    }
+    checkAdminPrivileges();
+  }, []);
+
+  // 2. Secret global keyboard gateway event intercept system
+  useEffect(() => {
+    const handleGlobalShortcut = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'q') {
+        if (isAdmin) {
+          e.preventDefault();
+          setShowAddModal((prev) => !prev);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalShortcut);
+    return () => window.removeEventListener("keydown", handleGlobalShortcut);
+  }, [isAdmin]);
+
+  // 3. Document query listener tracking code file pathway selections
   useEffect(() => {
     if (!activePaperId) return;
 
-    // Convert backslashes to forward slashes for consistent DB querying
     const filePath = activePaperId.replace(/\\/g, '/');
 
     async function fetchQuestion() {
       if (!isSupabaseConfigured) return;
 
       setLoading(true);
+      setShowSolution(false); // Make sure answers default to a hidden state on file swap!
       try {
         const { data, error } = await supabase
           .from("questions")
-          .select("screenshot_url, question_text")
+          .select("screenshot_url, question_text, answer_text") // Fetches answer text column safely
           .eq("file_path", filePath)
           .single();
 
@@ -57,18 +92,7 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
         <button
           onClick={() => setCollapsed(false)}
           title="Expand Question Panel"
-          style={{
-            background: "rgba(255, 255, 255, 0.08)",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            color: "#FFFFFF",
-            cursor: "pointer",
-            width: "24px",
-            height: "24px",
-            borderRadius: "6px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          style={collapseToggleStyle}
         >
           »
         </button>
@@ -114,22 +138,13 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
           <button
             onClick={() => setCollapsed(true)}
             title="Collapse Panel"
-            style={{
-              background: "transparent",
-              border: "none",
-              color: "#7A7A7A",
-              cursor: "pointer",
-              fontSize: "14px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
+            style={{ background: "transparent", border: "none", color: "#7A7A7A", cursor: "pointer", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "center" }}
           >
             «
           </button>
         </div>
 
-        {/* Content */}
+        {/* Main Content Node Render Matrix */}
         <div style={{
           flex: 1,
           overflowY: "auto",
@@ -143,12 +158,7 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
           ) : question ? (
             <>
               {question.screenshot_url && (
-                <div style={{
-                  borderRadius: "8px",
-                  overflow: "hidden",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  background: "rgba(255, 255, 255, 0.02)"
-                }}>
+                <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.1)", background: "rgba(255, 255, 255, 0.02)" }}>
                   <img
                     src={question.screenshot_url}
                     alt="Question Screenshot"
@@ -158,17 +168,47 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
               )}
 
               {question.question_text && (
-                <div style={{
-                  color: "#D4D4D4",
-                  fontSize: "12px",
-                  lineHeight: "1.6",
-                  whiteSpace: "pre-wrap",
-                  background: "rgba(255, 255, 255, 0.03)",
-                  padding: "16px",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(255, 255, 255, 0.05)"
-                }}>
+                <div style={{ color: "#D4D4D4", fontSize: "12px", lineHeight: "1.6", whiteSpace: "pre-wrap", background: "rgba(255, 255, 255, 0.03)", padding: "16px", borderRadius: "8px", border: "1px solid rgba(255, 255, 255, 0.05)" }}>
                   {question.question_text}
+                </div>
+              )}
+
+              {/* Collapsible Answer Key Render Frame Block */}
+              {question.answer_text && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>
+                  <button
+                    onClick={() => setShowSolution((prev) => !prev)}
+                    style={{
+                      background: showSolution ? "rgba(239, 68, 68, 0.15)" : "transparent",
+                      border: "1px solid #EF4444",
+                      color: "#EF4444",
+                      borderRadius: "6px",
+                      padding: "8px 12px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      textAlign: "center",
+                      transition: "all 0.15s ease"
+                    }}
+                  >
+                    {showSolution ? "Hide Answer Key" : "Reveal Answer Key"}
+                  </button>
+
+                  {showSolution && (
+                    <div style={{
+                      background: "#0A0A0A",
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
+                      padding: "14px",
+                      borderRadius: "8px",
+                      color: "#FCA5A5",
+                      fontSize: "12px",
+                      whiteSpace: "pre",
+                      overflowX: "auto",
+                      lineHeight: "1.5"
+                    }}>
+                      {question.answer_text}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -185,7 +225,9 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
                   ? "No question found in database for this file."
                   : "Supabase not configured. Cannot fetch question."}
               </div>
-              {isSupabaseConfigured && (
+
+              {/* Only displays addition buttons if authorized admin email matching verification succeeds */}
+              {isSupabaseConfigured && isAdmin && (
                 <button
                   onClick={() => setShowAddModal(true)}
                   style={{
@@ -197,7 +239,6 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
                     fontSize: "11px",
                     fontWeight: 600,
                     cursor: "pointer",
-                    transition: "all 0.2s"
                   }}
                 >
                   + Add Question
@@ -207,11 +248,11 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
           )}
         </div>
       </div>
-      
+
       {showAddModal && (
-        <AddQuestionModal 
-          activePaperId={activePaperId} 
-          onClose={() => setShowAddModal(false)} 
+        <AddQuestionModal
+          activePaperId={activePaperId}
+          onClose={() => setShowAddModal(false)}
           onSuccess={(newQuestion) => {
             setQuestion(newQuestion);
             setShowAddModal(false);
@@ -221,3 +262,5 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
     </>
   );
 }
+
+const collapseToggleStyle = { background: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.1)", color: "#FFFFFF", cursor: "pointer", width: "24px", height: "24px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" };

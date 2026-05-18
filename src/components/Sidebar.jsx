@@ -116,20 +116,72 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
   const [treeData, setTreeData] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/fs/tree')
-      .then(res => res.json())
-      .then(tree => {
-        // Keep raw tree to render recursive hierarchy
-        setTreeData(tree);
+    import("../supabaseClient").then(({ supabase }) => {
+      if (!supabase) return;
 
-        // Auto-expand the root level directories
-        const map = {};
-        tree.filter(n => n.type === 'directory').forEach(n => {
-          map[n.path] = true;
+      supabase
+        .from('questions')
+        .select('file_path')
+        .then(({ data, error }) => {
+          if (error) {
+            console.error('Failed to fetch questions:', error);
+            return;
+          }
+
+          const paths = data.map(q => q.file_path).filter(Boolean);
+          const root = [];
+
+          // Reconstruct the nested tree structure from file paths
+          paths.forEach(path => {
+            const parts = path.split('/');
+            let currentList = root;
+            
+            for (let i = 0; i < parts.length; i++) {
+              const part = parts[i];
+              const isFile = i === parts.length - 1;
+              let existing = currentList.find(n => n.name === part);
+              
+              if (isFile) {
+                if (!existing) {
+                  currentList.push({ name: part, type: 'file', path: path });
+                }
+              } else {
+                if (!existing) {
+                  existing = { 
+                    name: part, 
+                    type: 'directory', 
+                    path: parts.slice(0, i + 1).join('/'), 
+                    children: [] 
+                  };
+                  currentList.push(existing);
+                }
+                currentList = existing.children;
+              }
+            }
+          });
+
+          // Sort folders first, then files
+          const sortTree = (nodes) => {
+            nodes.sort((a, b) => {
+              if (a.type === b.type) return a.name.localeCompare(b.name);
+              return a.type === 'directory' ? -1 : 1;
+            });
+            nodes.forEach(n => {
+              if (n.children) sortTree(n.children);
+            });
+          };
+          sortTree(root);
+
+          setTreeData(root);
+
+          // Auto-expand the root level directories
+          const map = {};
+          root.forEach(n => {
+            if (n.type === 'directory') map[n.path] = true;
+          });
+          setExpanded(map);
         });
-        setExpanded(map);
-      })
-      .catch(err => console.error('Failed to fetch file tree:', err));
+    });
   }, []);
 
   const toggleNode = (path) => {

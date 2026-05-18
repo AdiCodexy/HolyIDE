@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { io } from "socket.io-client";
 
 const HINTS = [
   { tag: "Q1",  text: "Flask's render_template looks in /templates by default — path is relative to app root." },
@@ -28,26 +27,27 @@ export default function Terminal() {
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    const socket = io("http://localhost:3001");
+    const handleTerminalOutput = (e) => {
+      const { text, type } = e.detail;
+      if (type === 'clear') {
+        setLines(["> System initialized. Ready to execute code.\n"]);
+      } else {
+        setLines(prev => {
+          if (!text) return prev;
+          
+          const last = prev[prev.length - 1];
+          if (last && !last.endsWith('\n') && !text.startsWith('\n')) {
+            const newPrev = [...prev];
+            newPrev[newPrev.length - 1] = last + text;
+            return newPrev;
+          }
+          return [...prev, text];
+        });
+      }
+    };
 
-    socket.on("output", ({ data }) => {
-      setLines(prev => {
-        const last = prev[prev.length - 1];
-        if (last && !last.endsWith('\n') && !data.startsWith('\n')) {
-          const newPrev = [...prev];
-          newPrev[newPrev.length - 1] = last + data;
-          return newPrev;
-        }
-        // Split incoming data by newlines if necessary, but keep it simple for now
-        return [...prev, data];
-      });
-    });
-
-    socket.on("exit", ({ code }) => {
-      setLines(prev => [...prev, `\n> Process exited with code ${code}\n`]);
-    });
-
-    return () => socket.disconnect();
+    window.addEventListener("terminal-output", handleTerminalOutput);
+    return () => window.removeEventListener("terminal-output", handleTerminalOutput);
   }, []);
 
   useEffect(() => {
