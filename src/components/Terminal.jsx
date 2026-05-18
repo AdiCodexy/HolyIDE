@@ -1,10 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-
-const INITIAL_OUTPUT = `> python main.py
- * Running on http://127.0.0.1:5000
- * Debug mode: on
-[2024-01-15 14:32:01] GET / 200 -
-[2024-01-15 14:32:01] GET /static/style.css 200 -`;
+import { io } from "socket.io-client";
 
 const HINTS = [
   { tag: "Q1",  text: "Flask's render_template looks in /templates by default — path is relative to app root." },
@@ -13,92 +8,52 @@ const HINTS = [
   { tag: "TIP", text: "Jinja2: {{ var }} outputs a value, {% block %} defines an overridable template region." },
 ];
 
-// Run button states
-const RUN_IDLE      = "idle";
-const RUN_COMPILING = "compiling";
-const RUN_DONE      = "done";
-
 function OutputLine({ text }) {
   if (text.startsWith(">"))
     return <div><span style={{ color: "#FBBF24" }}>&gt;</span><span style={{ color: "#9A9A9A" }}>{text.slice(1)}</span></div>;
-  if (/\b200\b/.test(text))  return <div style={{ color: "#34D399" }}>{text}</div>;
-  if (/\b404|500\b/.test(text)) return <div style={{ color: "#F87171" }}>{text}</div>;
-  if (text.startsWith(" *")) return <div style={{ color: "#3D3D3D" }}>{text}</div>;
+  if (text.includes("Error") || text.includes("Exception") || /\b404|500\b/.test(text)) 
+    return <div style={{ color: "#F87171" }}>{text}</div>;
+  if (text.startsWith(" *") || text.includes("http://")) 
+    return <div style={{ color: "#34D399" }}>{text}</div>;
   // Compiling / success indicator lines
   if (text.startsWith("⏳"))  return <div style={{ color: "#FBBF24" }}>{text}</div>;
   if (text.startsWith("✓"))   return <div style={{ color: "#34D399" }}>{text}</div>;
-  return <div style={{ color: "#3D3D3D" }}>{text}</div>;
+  return <div style={{ color: "#D4D4D4", whiteSpace: "pre-wrap" }}>{text}</div>;
 }
 
 export default function Terminal() {
-  const [input,      setInput]     = useState("");
-  const [lines,      setLines]     = useState(INITIAL_OUTPUT.split("\n"));
-  const [activePane, setPane]      = useState("output");
-  const [runState,   setRunState]  = useState(RUN_IDLE);
-  const scrollRef                  = useRef(null);
-  const timerRef                   = useRef(null);
+  const [input, setInput] = useState("");
+  const [lines, setLines] = useState(["> System initialized. Ready to execute code.\n"]);
+  const [activePane, setPane] = useState("output");
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    const socket = io("http://localhost:3001");
+
+    socket.on("output", ({ data }) => {
+      setLines(prev => {
+        const last = prev[prev.length - 1];
+        if (last && !last.endsWith('\n') && !data.startsWith('\n')) {
+          const newPrev = [...prev];
+          newPrev[newPrev.length - 1] = last + data;
+          return newPrev;
+        }
+        // Split incoming data by newlines if necessary, but keep it simple for now
+        return [...prev, data];
+      });
+    });
+
+    socket.on("exit", ({ code }) => {
+      setLines(prev => [...prev, `\n> Process exited with code ${code}\n`]);
+    });
+
+    return () => socket.disconnect();
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current)
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [lines]);
-
-  // Cleanup timer on unmount
-  useEffect(() => () => clearTimeout(timerRef.current), []);
-
-  const handleRun = () => {
-    if (runState !== RUN_IDLE) return;
-
-    const cmd = input.trim();
-    setInput("");
-
-    // 1. Show "Compiling..." immediately
-    setRunState(RUN_COMPILING);
-    setLines(prev => [
-      ...prev,
-      cmd ? `> ${cmd}` : "> python main.py",
-      "⏳ Compiling...",
-    ]);
-
-    // 2. After 1 s, swap to success
-    timerRef.current = setTimeout(() => {
-      setLines(prev => {
-        // Replace the last "⏳ Compiling…" line with a success line
-        const updated = [...prev];
-        const lastIdx = updated.lastIndexOf("⏳ Compiling...");
-        if (lastIdx !== -1)
-          updated[lastIdx] = "✓ Compiled & executed successfully.";
-        return updated;
-      });
-      setRunState(RUN_DONE);
-
-      // Reset button back to idle after a short pause so user sees ✓
-      timerRef.current = setTimeout(() => setRunState(RUN_IDLE), 1500);
-    }, 1000);
-  };
-
-  // Button label + colour driven by runState
-  const btnLabel = runState === RUN_COMPILING
-    ? "…"
-    : runState === RUN_DONE
-    ? "✓"
-    : "▶ Run";
-
-  const btnColor = runState === RUN_COMPILING
-    ? "#FBBF24"
-    : runState === RUN_DONE
-    ? "#34D399"
-    : "#6B6B6B";
-
-  const btnBg = runState === RUN_COMPILING
-    ? "rgba(251, 191, 36, 0.10)"
-    : runState === RUN_DONE
-    ? "rgba(52, 211, 153, 0.10)"
-    : "rgba(255, 255, 255, 0.06)";
-
-  const btnBorder = runState !== RUN_IDLE
-    ? (runState === RUN_DONE ? "rgba(52, 211, 153, 0.3)" : "rgba(251, 191, 36, 0.3)")
-    : "rgba(255, 255, 255, 0.08)";
 
   return (
     <div style={{
@@ -125,7 +80,6 @@ export default function Terminal() {
             key={pane}
             onClick={() => setPane(pane)}
             style={{
-              // Active tab = white pill (matching the reference's "Folders" tab style)
               background: activePane === pane ? "rgba(255, 255, 255, 0.95)" : "transparent",
               border: "none",
               borderBottom: "none",
@@ -157,44 +111,6 @@ export default function Terminal() {
             {pane === "output" ? "Output" : "Exam Hints"}
           </button>
         ))}
-
-        {activePane === "output" && (
-          <button
-            onClick={handleRun}
-            disabled={runState !== RUN_IDLE}
-            style={{
-              marginLeft: "auto",
-              marginRight: "12px",
-              background: btnBg,
-              border: `1px solid ${btnBorder}`,
-              borderRadius: "8px",
-              color: btnColor,
-              cursor: runState !== RUN_IDLE ? "default" : "pointer",
-              padding: "3px 14px",
-              fontSize: "9px",
-              fontWeight: 500,
-              letterSpacing: "0.05em",
-              minWidth: "52px",
-              transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-            }}
-            onMouseEnter={e => {
-              if (runState === RUN_IDLE) {
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.20)";
-                e.currentTarget.style.color = "#FFFFFF";
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.10)";
-              }
-            }}
-            onMouseLeave={e => {
-              if (runState === RUN_IDLE) {
-                e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.08)";
-                e.currentTarget.style.color = "#6B6B6B";
-                e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
-              }
-            }}
-          >
-            {btnLabel}
-          </button>
-        )}
       </div>
 
       {/* Content */}
@@ -207,8 +123,8 @@ export default function Terminal() {
                 flex: 1,
                 overflowY: "auto",
                 padding: "10px 16px",
-                fontSize: "10px",
-                lineHeight: "1.8",
+                fontSize: "11px",
+                lineHeight: "1.6",
               }}
             >
               {lines.map((line, i) => <OutputLine key={i} text={line} />)}
@@ -227,9 +143,14 @@ export default function Terminal() {
               <input
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleRun()}
-                placeholder="enter command…"
-                disabled={runState !== RUN_IDLE}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    // Could implement sending stdin to process later
+                    setInput("");
+                  }
+                }}
+                placeholder="Terminal input (read-only for now)…"
+                disabled={true}
                 style={{
                   flex: 1,
                   background: "transparent",
@@ -239,8 +160,7 @@ export default function Terminal() {
                   fontSize: "10px",
                   fontFamily: "'JetBrains Mono', monospace",
                   caretColor: "#FFFFFF",
-                  opacity: runState !== RUN_IDLE ? 0.3 : 1,
-                  transition: "opacity 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+                  opacity: 0.5,
                 }}
               />
             </div>
@@ -262,7 +182,6 @@ export default function Terminal() {
                   alignItems: "flex-start",
                   gap: "12px",
                   padding: "12px 16px",
-                  // Glassy card — like the reference folder cards
                   background: "rgba(255, 255, 255, 0.03)",
                   border: "1px solid rgba(255, 255, 255, 0.06)",
                   borderRadius: "14px",

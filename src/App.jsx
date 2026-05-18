@@ -6,6 +6,7 @@ import CodeBlock from "./components/CodeBlock";
 import Terminal from "./components/Terminal";
 import ProfilePage from "./components/ProfilePage";
 import HomePage from "./components/HomePage";
+import QuestionPanel from "./components/QuestionPanel";
 
 // ── Clamp helper ───────────────────────────────────────────────────
 const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
@@ -58,8 +59,8 @@ function ResizeHandle({ direction, onDragStart }) {
 
 // ── Main layout ────────────────────────────────────────────────────
 export default function App() {
-  const [activePaperId, setActivePaperId] = useState("py-1");
-  const [openTabs, setOpenTabs] = useState(["py-1"]);
+  const [activePaperId, setActivePaperId] = useState("Python/2024/Term1/python_basics.py");
+  const [openTabs, setOpenTabs] = useState(["Python/2024/Term1/python_basics.py"]);
   const [showProfile, setShowProfile] = useState(false);
   const [currentView, setCurrentView] = useState("home");
   // Which subject to show in sidebar (null = all)
@@ -92,12 +93,15 @@ export default function App() {
   // Sidebar width (px) — clamped [160, 480]
   const [sidebarWidth, setSidebarWidth] = useState(250);
 
+  // Question panel width (px) — clamped [300, 800]
+  const [questionWidth, setQuestionWidth] = useState(400);
+
   // Terminal height (px) — clamped [80, window - 120]
   const [terminalHeight, setTerminalHeight] = useState(
     () => Math.round(window.innerHeight * 0.30)
   );
 
-  // Which axis is currently being dragged: null | "sidebar" | "terminal"
+  // Which axis is currently being dragged: null | "sidebar" | "terminal" | "question"
   const dragging = useRef(null);
   const dragOrigin = useRef(0);   // mouseX or mouseY at drag start
   const sizeAtDrag = useRef(0);   // width/height at drag start
@@ -109,6 +113,14 @@ export default function App() {
     dragOrigin.current = e.clientX;
     sizeAtDrag.current = sidebarWidth;
   }, [sidebarWidth]);
+
+  // ── Question drag ───────────────────────────────────────────────
+  const startQuestionDrag = useCallback((e) => {
+    e.preventDefault();
+    dragging.current = "question";
+    dragOrigin.current = e.clientX;
+    sizeAtDrag.current = questionWidth;
+  }, [questionWidth]);
 
   // ── Terminal drag ───────────────────────────────────────────────
   const startTerminalDrag = useCallback((e) => {
@@ -126,6 +138,11 @@ export default function App() {
       if (dragging.current === "sidebar") {
         const delta = e.clientX - dragOrigin.current;
         setSidebarWidth(clamp(sizeAtDrag.current + delta, 160, 480));
+      }
+
+      if (dragging.current === "question") {
+        const delta = e.clientX - dragOrigin.current;
+        setQuestionWidth(clamp(sizeAtDrag.current + delta, 300, 800));
       }
 
       if (dragging.current === "terminal") {
@@ -204,13 +221,23 @@ export default function App() {
           overflow: "hidden",
           minWidth: 0,
         }}>
-          {/* Editor */}
+          {/* Editor Area (Split Panel) */}
           <div style={{
             flex: 1,
             overflow: "hidden",
             display: "flex",
+            flexDirection: "row",
             minHeight: 0,
           }}>
+            <QuestionPanel
+              activePaperId={activePaperId}
+              width={questionWidth}
+              setWidth={setQuestionWidth}
+            />
+
+            {/* ── Vertical resize handle for Question panel ── */}
+            <ResizeHandle direction="col" onDragStart={startQuestionDrag} />
+
             <CodeBlock
               paperId={activePaperId}
               openTabs={openTabs}

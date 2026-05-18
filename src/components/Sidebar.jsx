@@ -1,34 +1,145 @@
-import { useState } from "react";
-import { SUBJECTS } from "./snippets";
+import { useState, useEffect } from "react";
 
 // Props
 // ─────
-// activeId      : string        — which question is currently selected (owned by App)
+// activeId      : string        — which file path is currently selected
 // onSelect      : (id) => void  — notify App of a new selection
 // width         : number        — px width driven by App's drag state
 // onOpenProfile : () => void    — open the profile page
 // onGoHome      : () => void    — go back to home page
 // subjectFilter : string|null   — only show this subject (null = all)
+
+function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode }) {
+  const isFile = node.type === 'file';
+  const isExpanded = expanded[node.path];
+  const isActive = activeId === node.path;
+  
+  if (isFile) {
+    return (
+      <button
+        onClick={() => onSelect(node.path)}
+        style={{
+          width: "100%",
+          background: isActive ? "rgba(255, 255, 255, 0.95)" : "transparent",
+          border: "none",
+          borderRadius: "8px",
+          cursor: "pointer",
+          padding: `6px 14px 6px ${14 + depth * 12}px`,
+          marginBottom: "1px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          gap: "1px",
+          transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+          textAlign: "left",
+        }}
+        onMouseEnter={e => {
+          if (!isActive) e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
+        }}
+        onMouseLeave={e => {
+          if (!isActive) e.currentTarget.style.background = "transparent";
+        }}
+      >
+        <span style={{
+          color: isActive ? "#0A0A0A" : "#7A7A7A",
+          fontSize: "10px",
+          fontWeight: isActive ? 600 : 400,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          maxWidth: "100%",
+        }}>
+          {node.name}
+        </span>
+      </button>
+    );
+  }
+
+  // Directory
+  return (
+    <div>
+      <button
+        onClick={() => toggleNode(node.path)}
+        style={{
+          width: "100%",
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          padding: `8px 14px 8px ${14 + depth * 12}px`,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          transition: "all 200ms",
+          textAlign: "left",
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)"}
+        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+      >
+        <span style={{
+          color: "#4A4A4A",
+          fontSize: "8px",
+          transition: "transform 200ms",
+          transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+          display: "inline-block",
+          width: "8px",
+          flexShrink: 0,
+        }}>▶</span>
+        <span style={{
+          color: "#8A8A8A",
+          fontSize: "10px",
+          fontWeight: 600,
+        }}>{node.name}</span>
+      </button>
+      
+      {isExpanded && node.children && (
+        <div style={{ paddingBottom: "2px" }}>
+          {node.children.map(child => (
+            <TreeNode
+              key={child.path}
+              node={child}
+              depth={depth + 1}
+              activeId={activeId}
+              onSelect={onSelect}
+              expanded={expanded}
+              toggleNode={toggleNode}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile, onGoHome, subjectFilter }) {
   const [collapsed, setCollapsed] = useState(false);
-  const [expanded, setExpanded] = useState(() => {
-    const map = {};
-    SUBJECTS.forEach(s => { map[s.name] = true; });
-    return map;
-  });
+  const [expanded, setExpanded] = useState({});
+  const [treeData, setTreeData] = useState([]);
 
-  const toggleSubject = (name) => {
-    setExpanded(prev => ({ ...prev, [name]: !prev[name] }));
+  useEffect(() => {
+    fetch('http://localhost:3001/api/fs/tree')
+      .then(res => res.json())
+      .then(tree => {
+        // Keep raw tree to render recursive hierarchy
+        setTreeData(tree);
+
+        // Auto-expand the root level directories
+        const map = {};
+        tree.filter(n => n.type === 'directory').forEach(n => {
+          map[n.path] = true;
+        });
+        setExpanded(map);
+      })
+      .catch(err => console.error('Failed to fetch file tree:', err));
+  }, []);
+
+  const toggleNode = (path) => {
+    setExpanded(prev => ({ ...prev, [path]: !prev[path] }));
   };
 
-  // Filter subjects based on subjectFilter
-  const visibleSubjects = subjectFilter
-    ? SUBJECTS.filter(s => s.name === subjectFilter)
-    : SUBJECTS;
-
-  const activeSubject = visibleSubjects.find(s =>
-    s.questions.some(q => q.id === activeId)
-  )?.name;
+  // Filter top-level subjects if filter is applied
+  const visibleTree = subjectFilter
+    ? treeData.filter(s => s.name === subjectFilter)
+    : treeData;
 
   // Get user initial from localStorage
   const userName = (() => {
@@ -48,6 +159,7 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
       flexShrink: 0,
       overflow: "hidden",
       fontFamily: "'JetBrains Mono', monospace",
+      transition: "width 200ms cubic-bezier(0.4, 0, 0.2, 1)",
     }}>
 
       {/* ── Top controls ─────────────────────────────────────── */}
@@ -132,16 +244,24 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
 
         {/* Username */}
         {!collapsed && (
-          <span style={{
-            color: "#7A7A7A",
-            fontSize: "10px",
-            fontWeight: 500,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            flex: 1,
-            minWidth: 0,
-          }}>
+          <span 
+            onClick={onOpenProfile}
+            style={{
+              color: "#7A7A7A",
+              fontSize: "10px",
+              fontWeight: 500,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              flex: 1,
+              minWidth: 0,
+              cursor: "pointer",
+              transition: "color 150ms"
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+            onMouseLeave={e => e.currentTarget.style.color = "#7A7A7A"}
+            title="Open Profile"
+          >
             {userName}
           </span>
         )}
@@ -174,146 +294,42 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
         </button>
       </div>
 
-      {/* Subject → Question tree */}
-      <nav style={{ overflowY: "auto", flex: 1, padding: "6px 0" }}>
-        {visibleSubjects.map(subject => {
-          const isSubjectActive = activeSubject === subject.name;
-          const isExpanded = expanded[subject.name];
-
-          return (
-            <div key={subject.name}>
-              {/* Subject header — click to expand/collapse */}
-              <button
-                onClick={() => !collapsed && toggleSubject(subject.name)}
-                style={{
-                  width: "100%",
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: collapsed ? "10px 0" : "8px 14px",
-                  display: "flex",
-                  alignItems: collapsed ? "center" : "flex-start",
-                  justifyContent: collapsed ? "center" : "flex-start",
-                  gap: "8px",
-                  transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-                  textAlign: "left",
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)";
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = "transparent";
-                }}
-              >
-                {collapsed ? (
-                  <span style={{
-                    color: isSubjectActive ? "#FFFFFF" : "#4A4A4A",
-                    fontSize: "9px",
-                    fontWeight: 600,
-                  }}>
-                    {subject.name.charAt(0)}
-                  </span>
-                ) : (
-                  <>
-                    {/* Chevron */}
-                    <span style={{
-                      color: "#4A4A4A",
-                      fontSize: "8px",
-                      transition: "transform 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-                      transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
-                      display: "inline-block",
-                      width: "8px",
-                      flexShrink: 0,
-                      marginTop: "2px",
-                    }}>
-                      ▶
-                    </span>
-                    <span style={{
-                      color: isSubjectActive ? "#FFFFFF" : "#8A8A8A",
-                      fontSize: "10px",
-                      fontWeight: 600,
-                      letterSpacing: "0.02em",
-                      transition: "color 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-                    }}>
-                      {subject.name}
-                    </span>
-                    {/* Question count badge */}
-                    <span style={{
-                      marginLeft: "auto",
-                      color: "#4A4A4A",
-                      fontSize: "8px",
-                      background: "rgba(255, 255, 255, 0.06)",
-                      padding: "1px 6px",
-                      borderRadius: "8px",
-                      fontWeight: 500,
-                    }}>
-                      {subject.questions.length}
-                    </span>
-                  </>
-                )}
-              </button>
-
-              {/* Questions list — shown when expanded */}
-              {!collapsed && isExpanded && (
-                <div style={{ paddingBottom: "4px" }}>
-                  {subject.questions.map(q => {
-                    const isActive = activeId === q.id;
-                    return (
-                      <button
-                        key={q.id}
-                        onClick={() => onSelect(q.id)}
-                        style={{
-                          width: "100%",
-                          background: isActive ? "rgba(255, 255, 255, 0.95)" : "transparent",
-                          border: "none",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          padding: "6px 14px 6px 30px",
-                          marginBottom: "1px",
-                          marginLeft: "8px",
-                          marginRight: "8px",
-                          maxWidth: "calc(100% - 16px)",
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "flex-start",
-                          gap: "1px",
-                          transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-                          textAlign: "left",
-                        }}
-                        onMouseEnter={e => {
-                          if (!isActive) e.currentTarget.style.background = "rgba(255, 255, 255, 0.06)";
-                        }}
-                        onMouseLeave={e => {
-                          if (!isActive) e.currentTarget.style.background = "transparent";
-                        }}
-                      >
-                        <span style={{
-                          color: isActive ? "#0A0A0A" : "#7A7A7A",
-                          fontSize: "10px",
-                          fontWeight: isActive ? 600 : 400,
-                          transition: "color 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          maxWidth: "100%",
-                        }}>
-                          {q.label}
-                        </span>
-                        <span style={{
-                          color: isActive ? "#3A3A3A" : "#3A3A3A",
-                          fontSize: "8px",
-                          transition: "color 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-                        }}>
-                          {q.filename}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          );
-        })}
+      {/* Recursive File Tree */}
+      <nav style={{ overflowY: "auto", flex: 1, padding: "6px 8px 6px 0" }}>
+        {visibleTree.map(node => (
+          collapsed ? (
+            <button
+              key={node.path}
+              onClick={() => setCollapsed(false)}
+              style={{
+                width: "100%",
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                padding: "10px 0",
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
+              <span style={{
+                color: "#4A4A4A",
+                fontSize: "10px",
+                fontWeight: 600,
+              }}>
+                {node.name.charAt(0)}
+              </span>
+            </button>
+          ) : (
+            <TreeNode
+              key={node.path}
+              node={node}
+              activeId={activeId}
+              onSelect={onSelect}
+              expanded={expanded}
+              toggleNode={toggleNode}
+            />
+          )
+        ))}
       </nav>
 
       {/* Footer */}
