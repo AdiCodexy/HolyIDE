@@ -18,41 +18,83 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+
   const saveTimeoutRef = useRef(null);
+  const latestContentRef = useRef("");
+  const prevPaperIdRef = useRef(paperId);
 
   const writeToTerminal = (text, type = 'output') => {
     window.dispatchEvent(new CustomEvent('terminal-output', { detail: { text, type } }));
   };
 
-  // Fetch file content when paperId changes
+  // Dedicated helper to safely upsert code content to Supabase
+  const saveToSupabase = (value, pathId) => {
+    if (!pathId) return;
+    const normalizedPath = pathId.replace(/\\/g, '/');
+
+    import("../supabaseClient").then(({ supabase }) => {
+      if (!supabase) return;
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+
+        supabase
+          .from('user_code')
+          .upsert({
+            user_id: user.id,
+            file_path: normalizedPath,
+            code_content: value
+          }, { onConflict: 'user_id, file_path' })
+          .then(({ error }) => {
+            if (error) console.error('Auto-save failed:', error);
+          });
+      });
+    });
+  };
+
+  // Sync state changes and handle virtual loading pipelines when paperId updates
   useEffect(() => {
+    // 1. EMERGENCY FLASH SAVE: If user switches files while a 2s auto-save is pending, force commit now
+    if (saveTimeoutRef.current && prevPaperIdRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveToSupabase(latestContentRef.current, prevPaperIdRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    // Update tracking reference to the new active path identifier
+    prevPaperIdRef.current = paperId;
+
     if (!paperId) return;
-    
+
     setIsLoading(true);
     import("../supabaseClient").then(({ supabase }) => {
       if (!supabase) {
         setIsLoading(false);
         return;
       }
-      
+
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) {
           setContent("");
+          latestContentRef.current = "";
           setIsLoading(false);
           return;
         }
+
+        const normalizedPath = paperId.replace(/\\/g, '/');
 
         supabase
           .from('user_code')
           .select('code_content')
           .eq('user_id', user.id)
-          .eq('file_path', paperId)
-          .single()
+          .eq('file_path', normalizedPath)
+          .maybeSingle() // Cleanly handles missing entries without breaking runtime state
           .then(({ data, error }) => {
             if (data && data.code_content) {
               setContent(data.code_content);
+              latestContentRef.current = data.code_content;
             } else {
-              setContent(""); // Blank default if no saved code
+              setContent(""); // Default empty canvas for pristine question targets
+              latestContentRef.current = "";
             }
             setIsLoading(false);
           });
@@ -62,30 +104,16 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
 
   const handleEditorChange = (value) => {
     setContent(value);
-    
+    latestContentRef.current = value; // Keep reference pointer up to date instantly
+
     // Auto-save with debounce
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    
+
     saveTimeoutRef.current = setTimeout(() => {
-      import("../supabaseClient").then(({ supabase }) => {
-        if (!supabase) return;
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (!user) return;
-          
-          supabase
-            .from('user_code')
-            .upsert({
-              user_id: user.id,
-              file_path: paperId,
-              code_content: value
-            }, { onConflict: 'user_id, file_path' })
-            .then(({ error }) => {
-              if (error) console.error('Auto-save failed:', error);
-            });
-        });
-      });
+      saveToSupabase(value, paperId);
+      saveTimeoutRef.current = null;
     }, 2000);
   };
 
@@ -96,7 +124,7 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
     const parts = pathId.split(/[/\\]/);
     const filename = parts[parts.length - 1];
     const ext = filename.split('.').pop();
-    
+
     // Map extension to Monaco language
     const extMap = {
       'py': 'python',
@@ -107,7 +135,7 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
       'sql': 'sql',
       'vue': 'javascript'
     };
-    
+
     return {
       filename,
       language: extMap[ext] || 'plaintext'
@@ -146,7 +174,6 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
           gap: "2px",
           flex: 1,
           overflowX: "auto",
-          // Hide scrollbar for a cleaner look
           scrollbarWidth: "none",
           msOverflowStyle: "none",
         }}>
@@ -256,7 +283,7 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
 
                 writeToTerminal('', 'clear');
                 writeToTerminal(`> Sending ${currentFileInfo.filename} to Cloud Execution API...\n`);
-                
+
                 setIsExecuting(true);
 
                 const lang = monacoLang === "python" ? "python" : "java";
@@ -270,21 +297,21 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
                     files: [{ name: currentFileInfo.filename, content: content }]
                   })
                 })
-                .then(res => res.json())
-                .then(data => {
-                  setIsExecuting(false);
-                  if (data.message) {
-                    writeToTerminal(`\nError: ${data.message}\n`);
-                  } else if (data.run) {
-                    if (data.run.stdout) writeToTerminal(data.run.stdout);
-                    if (data.run.stderr) writeToTerminal(data.run.stderr);
-                    writeToTerminal(`\n> Process exited with code ${data.run.code}\n`);
-                  }
-                })
-                .catch(err => {
-                  setIsExecuting(false);
-                  writeToTerminal(`\nExecution Error: Failed to connect to sandbox API. ${err.message}\n`);
-                });
+                  .then(res => res.json())
+                  .then(data => {
+                    setIsExecuting(false);
+                    if (data.message) {
+                      writeToTerminal(`\nError: ${data.message}\n`);
+                    } else if (data.run) {
+                      if (data.run.stdout) writeToTerminal(data.run.stdout);
+                      if (data.run.stderr) writeToTerminal(data.run.stderr);
+                      writeToTerminal(`\n> Process exited with code ${data.run.code}\n`);
+                    }
+                  })
+                  .catch(err => {
+                    setIsExecuting(false);
+                    writeToTerminal(`\nExecution Error: Failed to connect to sandbox API. ${err.message}\n`);
+                  });
               }}
               disabled={isExecuting}
               style={{
@@ -365,4 +392,3 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
     </div>
   );
 }
-
