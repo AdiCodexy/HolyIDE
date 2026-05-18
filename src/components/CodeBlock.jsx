@@ -27,10 +27,17 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
     window.dispatchEvent(new CustomEvent('terminal-output', { detail: { text, type } }));
   };
 
+  const getLocalStorageKey = (pathId) => {
+    return `holy-ide-local-code:${pathId.replace(/\\/g, '/')}`;
+  };
+
   // Dedicated helper to safely upsert code content to Supabase
   const saveToSupabase = (value, pathId) => {
     if (!pathId) return;
     const normalizedPath = pathId.replace(/\\/g, '/');
+
+    // Backup instantly to local storage as client-side insurance
+    localStorage.setItem(getLocalStorageKey(normalizedPath), value);
 
     import("../supabaseClient").then(({ supabase }) => {
       if (!supabase) return;
@@ -65,22 +72,27 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
 
     if (!paperId) return;
 
+    const normalizedPath = paperId.replace(/\\/g, '/');
     setIsLoading(true);
+
+    const localFallback = localStorage.getItem(getLocalStorageKey(normalizedPath)) || "";
+
     import("../supabaseClient").then(({ supabase }) => {
       if (!supabase) {
+        setContent(localFallback);
+        latestContentRef.current = localFallback;
         setIsLoading(false);
         return;
       }
 
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) {
-          setContent("");
-          latestContentRef.current = "";
+          // If logged out or broken session, gracefully load local backup code!
+          setContent(localFallback);
+          latestContentRef.current = localFallback;
           setIsLoading(false);
           return;
         }
-
-        const normalizedPath = paperId.replace(/\\/g, '/');
 
         supabase
           .from('user_code')
@@ -92,10 +104,20 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
             if (data && data.code_content) {
               setContent(data.code_content);
               latestContentRef.current = data.code_content;
+              localStorage.setItem(getLocalStorageKey(normalizedPath), data.code_content);
             } else {
-              setContent(""); // Default empty canvas for pristine question targets
-              latestContentRef.current = "";
+              // If empty in cloud, but has local backup, restore it and auto-sync!
+              setContent(localFallback);
+              latestContentRef.current = localFallback;
+              if (localFallback) {
+                saveToSupabase(localFallback, normalizedPath);
+              }
             }
+            setIsLoading(false);
+          })
+          .catch(() => {
+            setContent(localFallback);
+            latestContentRef.current = localFallback;
             setIsLoading(false);
           });
       });
