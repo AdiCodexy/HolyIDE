@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Editor } from "@monaco-editor/react";
+import { supabase } from "../supabaseClient"; // ── STATIC IMPORT: Rock-solid for production ──
 
 /* ── Helper to map snippet language strings to Monaco language IDs ── */
 function getMonacoLanguage(langString) {
@@ -27,40 +28,36 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
     window.dispatchEvent(new CustomEvent('terminal-output', { detail: { text, type } }));
   };
 
-  const getLocalStorageKey = (pathId) => {
-    return `holy-ide-local-code:${pathId.replace(/\\/g, '/')}`;
-  };
-
   // Dedicated helper to safely upsert code content to Supabase
-  const saveToSupabase = (value, pathId) => {
+  const saveToSupabase = async (value, pathId) => {
     if (!pathId) return;
     const normalizedPath = pathId.replace(/\\/g, '/');
 
-    // Backup instantly to local storage as client-side insurance
-    localStorage.setItem(getLocalStorageKey(normalizedPath), value);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-    import("../supabaseClient").then(({ supabase }) => {
-      if (!supabase) return;
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (!user) return;
+      const { error } = await supabase
+        .from('user_code')
+        .upsert({
+          user_id: user.id,
+          file_path: normalizedPath,
+          code_content: value
+        }, { onConflict: 'user_id, file_path' });
 
-        supabase
-          .from('user_code')
-          .upsert({
-            user_id: user.id,
-            file_path: normalizedPath,
-            code_content: value
-          }, { onConflict: 'user_id, file_path' })
-          .then(({ error }) => {
-            if (error) console.error('Auto-save failed:', error);
-          });
-      });
-    });
+      if (error) {
+        console.error('Auto-save database rejection:', error.message);
+      } else {
+        console.log(`Cloud sync complete for: ${normalizedPath} ✔️`);
+      }
+    } catch (err) {
+      console.error('Failed to run save transaction:', err);
+    }
   };
 
   // Sync state changes and handle virtual loading pipelines when paperId updates
   useEffect(() => {
-    // 1. EMERGENCY FLASH SAVE: If user switches files while a 2s auto-save is pending, force commit now
+    // 1. EMERGENCY FLASH SAVE: If user switches files while a 2s auto-save is pending, force commit immediately
     if (saveTimeoutRef.current && prevPaperIdRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveToSupabase(latestContentRef.current, prevPaperIdRef.current);
@@ -72,56 +69,43 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
 
     if (!paperId) return;
 
-    const normalizedPath = paperId.replace(/\\/g, '/');
-    setIsLoading(true);
-
-    const localFallback = localStorage.getItem(getLocalStorageKey(normalizedPath)) || "";
-
-    import("../supabaseClient").then(({ supabase }) => {
-      if (!supabase) {
-        setContent(localFallback);
-        latestContentRef.current = localFallback;
-        setIsLoading(false);
-        return;
-      }
-
-      supabase.auth.getUser().then(({ data: { user } }) => {
+    async function loadSavedCode() {
+      setIsLoading(true);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-          // If logged out or broken session, gracefully load local backup code!
-          setContent(localFallback);
-          latestContentRef.current = localFallback;
+          setContent("");
+          latestContentRef.current = "";
           setIsLoading(false);
           return;
         }
 
-        supabase
+        const normalizedPath = paperId.replace(/\\/g, '/');
+
+        const { data, error } = await supabase
           .from('user_code')
           .select('code_content')
           .eq('user_id', user.id)
           .eq('file_path', normalizedPath)
-          .maybeSingle() // Cleanly handles missing entries without breaking runtime state
-          .then(({ data, error }) => {
-            if (data && data.code_content) {
-              setContent(data.code_content);
-              latestContentRef.current = data.code_content;
-              localStorage.setItem(getLocalStorageKey(normalizedPath), data.code_content);
-            } else {
-              // If empty in cloud, but has local backup, restore it and auto-sync!
-              setContent(localFallback);
-              latestContentRef.current = localFallback;
-              if (localFallback) {
-                saveToSupabase(localFallback, normalizedPath);
-              }
-            }
-            setIsLoading(false);
-          })
-          .catch(() => {
-            setContent(localFallback);
-            latestContentRef.current = localFallback;
-            setIsLoading(false);
-          });
-      });
-    });
+          .maybeSingle(); // Cleanly handles empty states if student hasn't touched it yet
+
+        if (error) throw error;
+
+        if (data && data.code_content) {
+          setContent(data.code_content);
+          latestContentRef.current = data.code_content;
+        } else {
+          setContent(""); // Default empty canvas for new question targets
+          latestContentRef.current = "";
+        }
+      } catch (err) {
+        console.error("Failed to load virtual workspace code:", err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    loadSavedCode();
   }, [paperId]);
 
   const handleEditorChange = (value) => {
@@ -142,12 +126,10 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
   // Extract info from path e.g. "Python\file.py"
   const getFileInfo = (pathId) => {
     if (!pathId) return { filename: 'Unknown', language: 'plaintext' };
-    // Handle both Windows and Unix slashes
     const parts = pathId.split(/[/\\]/);
     const filename = parts[parts.length - 1];
     const ext = filename.split('.').pop();
 
-    // Map extension to Monaco language
     const extMap = {
       'py': 'python',
       'java': 'java',
