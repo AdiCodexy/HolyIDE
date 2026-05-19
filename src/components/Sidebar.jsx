@@ -23,6 +23,7 @@ function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode })
           transition: "all 0.2s ease",
           textAlign: "left",
           borderLeft: isActive ? "2px solid #FFFFFF" : "2px solid transparent",
+          color: isActive ? "#FFFFFF" : "#666666",
         }}
         onMouseEnter={e => {
           if (!isActive) e.currentTarget.style.color = "#FFFFFF";
@@ -32,7 +33,7 @@ function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode })
         }}
       >
         <span style={{
-          color: isActive ? "#FFFFFF" : "#666666",
+          color: "inherit",
           fontSize: "11px",
           fontWeight: isActive ? 500 : 400,
           whiteSpace: "nowrap",
@@ -62,6 +63,7 @@ function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode })
           alignItems: "center",
           gap: "8px",
           textAlign: "left",
+          color: "#888888",
         }}
         onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
         onMouseLeave={e => e.currentTarget.style.color = "#888888"}
