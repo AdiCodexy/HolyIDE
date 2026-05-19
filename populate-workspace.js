@@ -2,6 +2,7 @@ import { SUBJECTS } from './src/components/snippets.js';
 import fs from 'fs';
 import path from 'path';
 
+// eslint-disable-next-line no-undef
 const WORKSPACE_DIR = path.join(process.cwd(), 'workspace');
 
 if (!fs.existsSync(WORKSPACE_DIR)) {

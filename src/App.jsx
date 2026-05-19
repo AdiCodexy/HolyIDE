@@ -63,8 +63,19 @@ export default function App() {
   const [openTabs, setOpenTabs] = useState(["Python/2024/Term1/python_basics.py"]);
   const [showProfile, setShowProfile] = useState(false);
   const [currentView, setCurrentView] = useState("home");
-  // Which subject to show in sidebar (null = all)
   const [subjectFilter, setSubjectFilter] = useState(null);
+
+  const [isTransitioning, setIsTransitioning] = useState(false);
+
+  const handleTransition = useCallback((action) => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      action();
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 50);
+    }, 250);
+  }, []);
 
   // When a question is selected from the sidebar, add it as a tab (if not already) and switch to it
   const handleSelect = useCallback((id) => {
@@ -168,12 +179,12 @@ export default function App() {
       {/* ── Full-screen Home Page ───────────────────────────────── */}
       {currentView === "home" && (
         <HomePage
-          onOpenIDE={() => { setSubjectFilter(null); setCurrentView("ide"); }}
-          onOpenSubject={(subjectName, questionId) => {
+          onOpenIDE={() => handleTransition(() => { setSubjectFilter(null); setCurrentView("ide"); })}
+          onOpenSubject={(subjectName, questionId) => handleTransition(() => {
             setSubjectFilter(subjectName);
             handleSelect(questionId);
             setCurrentView("ide");
-          }}
+          })}
         />
       )}
 
@@ -185,7 +196,7 @@ export default function App() {
           zIndex: 100,
           background: "#0A0A0A",
         }}>
-          <ProfilePage onClose={() => setShowProfile(false)} />
+          <ProfilePage onClose={() => handleTransition(() => setShowProfile(false))} />
         </div>
       )}
 
@@ -194,7 +205,7 @@ export default function App() {
         style={{
           position: "fixed",
           inset: 0,
-          display: "flex",
+          display: currentView === "home" ? "none" : "flex",
           background: "#0A0A0A",
           overflow: "hidden",
           cursor: "inherit",
@@ -203,10 +214,10 @@ export default function App() {
         {/* ── Sidebar (controlled width) ─────────────────────── */}
         <Sidebar
           activeId={activePaperId}
-          onSelect={(id) => { handleSelect(id); setShowProfile(false); }}
+          onSelect={(id) => { handleSelect(id); if (showProfile) handleTransition(() => setShowProfile(false)); }}
           width={sidebarWidth}
-          onOpenProfile={() => setShowProfile(true)}
-          onGoHome={() => { setCurrentView("home"); setSubjectFilter(null); }}
+          onOpenProfile={() => handleTransition(() => setShowProfile(true))}
+          onGoHome={() => handleTransition(() => { setCurrentView("home"); setSubjectFilter(null); })}
           subjectFilter={subjectFilter}
         />
 
@@ -259,6 +270,17 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* ── Global Fade Overlay ─────────────────────────────────── */}
+      <div style={{
+        position: "fixed",
+        inset: 0,
+        background: "#000000",
+        zIndex: 9999,
+        pointerEvents: "none",
+        opacity: isTransitioning ? 1 : 0,
+        transition: "opacity 0.25s ease-in-out",
+      }} />
     </>
   );
 }

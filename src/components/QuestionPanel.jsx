@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../supabaseClient";
 import AddQuestionModal from "./AddQuestionModal";
 
-export default function QuestionPanel({ activePaperId, width, setWidth }) {
+export default function QuestionPanel({ activePaperId, width }) {
   const [question, setQuestion] = useState(null);
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -51,6 +51,13 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
     async function fetchQuestion() {
       if (!isSupabaseConfigured) return;
 
+      if (window.__questionCache?.[filePath] !== undefined) {
+        setQuestion(window.__questionCache[filePath]);
+        setLoading(false);
+        setShowSolution(false);
+        return;
+      }
+
       setLoading(true);
       setShowSolution(false); // Make sure answers default to a hidden state on file swap!
       try {
@@ -60,14 +67,19 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
           .eq("file_path", filePath)
           .single();
 
+        if (!window.__questionCache) window.__questionCache = {};
+        
         if (error) {
-          console.error("Error fetching question:", error);
+          window.__questionCache[filePath] = null;
           setQuestion(null);
         } else {
+          window.__questionCache[filePath] = data;
           setQuestion(data);
         }
       } catch (err) {
-        console.error("Failed to fetch question", err);
+        if (!window.__questionCache) window.__questionCache = {};
+        window.__questionCache[filePath] = null;
+        setQuestion(null);
       } finally {
         setLoading(false);
       }
@@ -154,7 +166,7 @@ export default function QuestionPanel({ activePaperId, width, setWidth }) {
           gap: "20px"
         }}>
           {loading ? (
-            <div style={{ color: "#7A7A7A", fontSize: "12px", textAlign: "center", marginTop: "20px" }}>Loading...</div>
+            <div style={{ flex: 1 }} />
           ) : question ? (
             <>
               {question.screenshot_url && (

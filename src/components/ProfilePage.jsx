@@ -1,39 +1,84 @@
 import { useState, useEffect } from "react";
 import { SUBJECTS } from "./snippets";
-
-// Load/save profile from localStorage
-const STORAGE_KEY = "holy-ide-profile";
-const defaultProfile = { name: "Student", studying: "B.Sc Computer Science" };
-
-function loadProfile() {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? { ...defaultProfile, ...JSON.parse(saved) } : defaultProfile;
-  } catch { return defaultProfile; }
-}
-function saveProfile(profile) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(profile));
-}
+import { supabase } from "../supabaseClient"; // Adjust this path if needed
 
 function getStats() {
   const totalQuestions = SUBJECTS.reduce((sum, s) => sum + s.questions.length, 0);
   return { totalQuestions, totalSubjects: SUBJECTS.length };
 }
 
-// ── Full-page Profile ──────────────────────────────────────────────
 export default function ProfilePage({ onClose }) {
-  const [profile, setProfile] = useState(loadProfile);
+  const [session, setSession] = useState(null);
+  const [profile, setProfile] = useState({
+    name: "Student",
+    studying: "Data Science", // Clean, minimal default
+    avatarUrl: null
+  });
+
   const [editing, setEditing] = useState(false);
-  const [editName, setEditName] = useState(profile.name);
-  const [editStudying, setEditStudying] = useState(profile.studying);
+  const [editName, setEditName] = useState("");
+  const [editStudying, setEditStudying] = useState("");
+
   const stats = getStats();
 
-  useEffect(() => { saveProfile(profile); }, [profile]);
+  // Fetch Session & Profile Data
+  useEffect(() => {
+    async function loadProfileData() {
+      const { data: { session } } = await supabase.auth.getSession();
 
-  const handleSave = () => {
+      if (session) {
+        setSession(session);
+        const googleAvatar = session.user.user_metadata?.avatar_url;
+
+        const { data: profileData, error } = await supabase
+          .from('profiles')
+          .select('name, studying')
+          .eq('id', session.user.id)
+          .single();
+
+        if (!error && profileData) {
+          const currentName = profileData.name || session.user.user_metadata?.full_name || "Student";
+          const currentStudying = profileData.studying || "Data Science";
+
+          setProfile({
+            name: currentName,
+            studying: currentStudying,
+            avatarUrl: googleAvatar
+          });
+
+          setEditName(currentName);
+          setEditStudying(currentStudying);
+        } else {
+          // If no profile exists yet, pre-fill with Google name
+          setEditName(session.user.user_metadata?.full_name || "Student");
+          setEditStudying("Data Science");
+          setProfile(p => ({ ...p, avatarUrl: googleAvatar }));
+        }
+      }
+    }
+
+    loadProfileData();
+  }, []);
+
+  // Save to Supabase using UPSERT
+  const handleSave = async () => {
     setProfile(p => ({ ...p, name: editName, studying: editStudying }));
     setEditing(false);
+
+    if (session) {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: session.user.id,
+          name: editName,
+          studying: editStudying,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) console.error("Error saving profile:", error);
+    }
   };
+
   const handleCancel = () => {
     setEditName(profile.name);
     setEditStudying(profile.studying);
@@ -44,319 +89,352 @@ export default function ProfilePage({ onClose }) {
 
   return (
     <div style={{
-      position: "absolute",
+      position: "fixed",
       inset: 0,
-      background: "#0A0A0A",
+      backgroundColor: "#000000", // Pure Black
+      color: "#FFFFFF",
       overflowY: "auto",
-      fontFamily: "'JetBrains Mono', monospace",
+      fontFamily: "'Inter', system-ui, -apple-system, sans-serif", // Clean sans-serif
+      boxSizing: "border-box",
     }}>
 
-      {/* ── Banner ──────────────────────────────────────────────── */}
+      {/* ── Top Navigation ────────────────────────────────────── */}
       <div style={{
-        height: "220px",
-        background: "linear-gradient(135deg, #1e3a5f 0%, #3b2682 30%, #2563eb 60%, #1e3a5f 100%)",
-        position: "relative",
+        padding: "40px 60px",
+        display: "flex",
+        alignItems: "center",
       }}>
-        <div style={{
-          position: "absolute",
-          inset: 0,
-          background: "radial-gradient(ellipse at 80% 20%, rgba(96,165,250,0.25) 0%, transparent 50%), radial-gradient(ellipse at 20% 80%, rgba(139,92,246,0.20) 0%, transparent 50%)",
-        }} />
-
-        {/* Back button — over the banner */}
         <button
           onClick={onClose}
           style={{
-            position: "absolute",
-            top: "20px",
-            left: "24px",
-            background: "rgba(0, 0, 0, 0.3)",
-            backdropFilter: "blur(12px)",
-            border: "1px solid rgba(255, 255, 255, 0.15)",
-            borderRadius: "10px",
+            background: "transparent",
+            border: "1px solid #333333",
             color: "#FFFFFF",
             cursor: "pointer",
-            padding: "8px 18px",
-            fontSize: "11px",
-            fontWeight: 500,
-            letterSpacing: "0.03em",
-            fontFamily: "'JetBrains Mono', monospace",
-            transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-            zIndex: 2,
+            padding: "10px 24px",
+            fontSize: "12px",
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+            transition: "all 0.2s ease",
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = "rgba(0, 0, 0, 0.5)";
-            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.30)";
+            e.currentTarget.style.background = "#FFFFFF";
+            e.currentTarget.style.color = "#000000";
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = "rgba(0, 0, 0, 0.3)";
-            e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)";
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "#FFFFFF";
           }}
         >
-          ← Back
+          Return
         </button>
       </div>
 
-      {/* ── Profile info (overlaps banner bottom) ───────────────── */}
+      {/* ── Main Desktop Grid ─────────────────────────────────── */}
       <div style={{
-        maxWidth: "700px",
+        maxWidth: "1400px",
         margin: "0 auto",
-        padding: "0 32px",
-        marginTop: "-60px",
-        position: "relative",
-        zIndex: 2,
+        padding: "0 60px 80px 60px",
+        display: "flex",
+        flexWrap: "wrap", // Allows stacking on smaller screens
+        gap: "100px",
       }}>
 
-        {/* Avatar */}
+        {/* ── Left Column: Profile & Stats ────────────────────── */}
         <div style={{
-          width: "100px",
-          height: "100px",
-          borderRadius: "50%",
-          background: "linear-gradient(135deg, #3b2682, #2563eb)",
-          border: "4px solid #0A0A0A",
+          flex: "1 1 350px",
           display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: "38px",
-          color: "#FFFFFF",
-          fontWeight: 600,
-          boxShadow: "0 6px 28px rgba(37, 99, 235, 0.35)",
+          flexDirection: "column",
+          gap: "48px",
         }}>
-          {profile.name.charAt(0).toUpperCase()}
-        </div>
 
-        {/* Name & studying */}
-        <div style={{ marginTop: "20px" }}>
-          {editing ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: "12px", maxWidth: "360px" }}>
-              <input
-                value={editName}
-                onChange={e => setEditName(e.target.value)}
-                placeholder="Your name"
-                autoFocus
-                style={{
-                  background: "rgba(255, 255, 255, 0.06)",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: "10px",
-                  color: "#FFFFFF",
-                  padding: "10px 14px",
-                  fontSize: "18px",
-                  fontWeight: 600,
-                  fontFamily: "'JetBrains Mono', monospace",
-                  outline: "none",
-                }}
-                onFocus={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"}
-                onBlur={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"}
-              />
-              <input
-                value={editStudying}
-                onChange={e => setEditStudying(e.target.value)}
-                placeholder="What are you studying?"
-                style={{
-                  background: "rgba(255, 255, 255, 0.06)",
-                  border: "1px solid rgba(255, 255, 255, 0.12)",
-                  borderRadius: "10px",
-                  color: "#9A9A9A",
-                  padding: "10px 14px",
-                  fontSize: "12px",
-                  fontFamily: "'JetBrains Mono', monospace",
-                  outline: "none",
-                }}
-                onFocus={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"}
-                onBlur={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"}
-              />
-              <div style={{ display: "flex", gap: "10px" }}>
-                <button onClick={handleSave} style={{
-                  background: "#FFFFFF",
-                  border: "none",
-                  borderRadius: "10px",
-                  color: "#0A0A0A",
-                  padding: "8px 20px",
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}>Save</button>
-                <button onClick={handleCancel} style={{
-                  background: "rgba(255, 255, 255, 0.06)",
-                  border: "1px solid rgba(255, 255, 255, 0.10)",
-                  borderRadius: "10px",
-                  color: "#9A9A9A",
-                  padding: "8px 20px",
-                  fontSize: "11px",
-                  fontWeight: 500,
-                  cursor: "pointer",
-                  fontFamily: "'JetBrains Mono', monospace",
-                }}>Cancel</button>
-              </div>
+          {/* Avatar Section */}
+          <div>
+            <div style={{
+              width: "160px",
+              height: "160px",
+              background: profile.avatarUrl ? `url(${profile.avatarUrl}) center/cover no-repeat` : "#111111",
+              border: "1px solid #333333",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "48px",
+              fontWeight: 300,
+              color: "#FFFFFF",
+              marginBottom: "32px",
+              filter: "grayscale(100%)", // Forces B&W aesthetic
+            }}>
+              {!profile.avatarUrl && profile.name.charAt(0).toUpperCase()}
             </div>
-          ) : (
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+
+            {/* Editing vs Viewing State */}
+            {editing ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
+                <input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  placeholder="Name"
+                  autoFocus
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    borderBottom: "1px solid #555555",
+                    color: "#FFFFFF",
+                    padding: "8px 0",
+                    fontSize: "32px",
+                    fontWeight: 300,
+                    outline: "none",
+                    fontFamily: "inherit",
+                    transition: "border-color 0.2s",
+                  }}
+                  onFocus={e => e.currentTarget.style.borderBottomColor = "#FFFFFF"}
+                  onBlur={e => e.currentTarget.style.borderBottomColor = "#555555"}
+                />
+                <input
+                  value={editStudying}
+                  onChange={e => setEditStudying(e.target.value)}
+                  placeholder="Studying..."
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    borderBottom: "1px solid #555555",
+                    color: "#888888",
+                    padding: "8px 0",
+                    fontSize: "16px",
+                    fontWeight: 400,
+                    outline: "none",
+                    fontFamily: "inherit",
+                    transition: "border-color 0.2s",
+                  }}
+                  onFocus={e => e.currentTarget.style.borderBottomColor = "#FFFFFF"}
+                  onBlur={e => e.currentTarget.style.borderBottomColor = "#555555"}
+                />
+                <div style={{ display: "flex", gap: "16px", marginTop: "16px" }}>
+                  <button onClick={handleSave} style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #FFFFFF",
+                    color: "#000000",
+                    padding: "12px 32px",
+                    fontSize: "12px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    cursor: "pointer",
+                    transition: "opacity 0.2s",
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = "0.8"}
+                    onMouseLeave={e => e.currentTarget.style.opacity = "1"}
+                  >Save</button>
+                  <button onClick={handleCancel} style={{
+                    background: "transparent",
+                    border: "1px solid #333333",
+                    color: "#888888",
+                    padding: "12px 32px",
+                    fontSize: "12px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    cursor: "pointer",
+                    transition: "color 0.2s",
+                  }}
+                    onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+                    onMouseLeave={e => e.currentTarget.style.color = "#888888"}
+                  >Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div>
                 <h1 style={{
-                  color: "#FFFFFF",
-                  fontSize: "28px",
-                  fontWeight: 700,
-                  margin: 0,
+                  fontSize: "42px",
+                  fontWeight: 300,
+                  margin: "0 0 12px 0",
                   letterSpacing: "-0.02em",
                 }}>
                   {profile.name}
                 </h1>
+                <p style={{
+                  color: "#888888",
+                  fontSize: "16px",
+                  margin: "0 0 32px 0",
+                  fontWeight: 400,
+                }}>
+                  {profile.studying}
+                </p>
                 <button
                   onClick={() => setEditing(true)}
                   style={{
-                    background: "rgba(255, 255, 255, 0.06)",
-                    border: "1px solid rgba(255, 255, 255, 0.10)",
-                    borderRadius: "8px",
-                    color: "#6B6B6B",
+                    background: "transparent",
+                    border: "none",
+                    color: "#666666",
                     cursor: "pointer",
-                    padding: "5px 14px",
-                    fontSize: "10px",
-                    fontWeight: 500,
-                    fontFamily: "'JetBrains Mono', monospace",
-                    transition: "all 200ms",
+                    padding: "0",
+                    fontSize: "12px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    borderBottom: "1px solid transparent",
+                    transition: "all 0.2s",
                   }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.background = "rgba(255,255,255,0.12)";
                     e.currentTarget.style.color = "#FFFFFF";
+                    e.currentTarget.style.borderBottom = "1px solid #FFFFFF";
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                    e.currentTarget.style.color = "#6B6B6B";
+                    e.currentTarget.style.color = "#666666";
+                    e.currentTarget.style.borderBottom = "1px solid transparent";
                   }}
                 >
-                  Edit
+                  Edit Profile
                 </button>
               </div>
-              <p style={{
-                color: "#5A5A5A",
-                fontSize: "13px",
-                marginTop: "6px",
-                margin: "6px 0 0 0",
-              }}>
-                {profile.studying}
-              </p>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        {/* ── Stats row ─────────────────────────────────────────── */}
-        <div style={{
-          display: "flex",
-          gap: "0",
-          marginTop: "32px",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
-          paddingBottom: "28px",
-        }}>
-          {[
-            { value: `${questionsCompleted}`, label: "solved" },
-            { value: `${stats.totalQuestions}`, label: "total" },
-            { value: "12", label: "day streak" },
-            { value: "47h", label: "logged" },
-            { value: "86%", label: "accuracy" },
-          ].map((stat, i) => (
-            <div key={i} style={{
-              flex: 1,
-              textAlign: i === 0 ? "left" : "center",
-            }}>
-              <div style={{ color: "#FFFFFF", fontSize: "22px", fontWeight: 700, letterSpacing: "-0.02em" }}>
-                {stat.value}
-              </div>
-              <div style={{ color: "#4A4A4A", fontSize: "9px", marginTop: "4px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                {stat.label}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* ── Progress by Subject (no box) ───────────────────────── */}
-        <div style={{ marginTop: "32px" }}>
+          {/* Stats Grid */}
           <div style={{
-            color: "#6B6B6B",
-            fontSize: "10px",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            fontWeight: 500,
-            marginBottom: "20px",
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr",
+            gap: "40px",
+            borderTop: "1px solid #222222",
+            paddingTop: "48px",
           }}>
-            Progress by Subject
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-            {SUBJECTS.map((subject, i) => {
-              const progress = [75, 60, 80, 45, 30][i] ?? 50;
-              const completed = Math.round(subject.questions.length * progress / 100);
-              const colors = ["#60A5FA", "#34D399", "#FBBF24", "#F87171", "#A78BFA"];
-              return (
-                <div key={subject.name}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                    <span style={{ color: "#C0C0C0", fontSize: "12px", fontWeight: 500 }}>{subject.name}</span>
-                    <span style={{ color: "#4A4A4A", fontSize: "10px" }}>{completed}/{subject.questions.length}</span>
-                  </div>
-                  <div style={{ height: "5px", background: "rgba(255, 255, 255, 0.06)", borderRadius: "4px", overflow: "hidden" }}>
-                    <div style={{
-                      height: "100%",
-                      width: `${progress}%`,
-                      background: colors[i] ?? "#60A5FA",
-                      borderRadius: "4px",
-                      transition: "width 800ms cubic-bezier(0.4, 0, 0.2, 1)",
-                    }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── Recent Activity (no box) ──────────────────────────── */}
-        <div style={{ marginTop: "40px", paddingBottom: "60px" }}>
-          <div style={{
-            color: "#6B6B6B",
-            fontSize: "10px",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            fontWeight: 500,
-            marginBottom: "20px",
-          }}>
-            Recent Activity
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
             {[
-              { action: "Completed", item: "BFS & Shortest Path", subject: "PDSA", time: "2h ago", color: "#34D399" },
-              { action: "Started", item: "OOP Fundamentals", subject: "Java", time: "5h ago", color: "#60A5FA" },
-              { action: "Completed", item: "Flask Routing", subject: "MAD 1", time: "1d ago", color: "#34D399" },
-              { action: "Reviewed", item: "Statistics & Math", subject: "Python", time: "2d ago", color: "#FBBF24" },
-              { action: "Completed", item: "Vue.js Components", subject: "MAD 2", time: "3d ago", color: "#34D399" },
-            ].map((activity, i) => (
-              <div key={i} style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "14px",
-                padding: "14px 0",
-                borderBottom: "1px solid rgba(255, 255, 255, 0.04)",
-              }}>
-                {/* Status dot */}
+              { value: `${questionsCompleted}`, label: "Questions Solved" },
+              { value: `${stats.totalQuestions}`, label: "Total Available" },
+              { value: "12", label: "Day Streak" },
+              { value: "47", label: "Hours Logged" },
+            ].map((stat, i) => (
+              <div key={i}>
                 <div style={{
-                  width: "7px",
-                  height: "7px",
-                  borderRadius: "50%",
-                  background: activity.color,
-                  flexShrink: 0,
-                  boxShadow: `0 0 8px ${activity.color}40`,
-                }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ color: "#7A7A7A", fontSize: "11px" }}>
-                    {activity.action}{" "}
-                    <span style={{ color: "#FFFFFF", fontWeight: 500 }}>{activity.item}</span>
-                    {" "}
-                    <span style={{ color: "#3A3A3A" }}>· {activity.subject}</span>
-                  </span>
+                  color: "#FFFFFF",
+                  fontSize: "36px",
+                  fontWeight: 300,
+                  fontFamily: "'JetBrains Mono', monospace", // Keep mono for numbers
+                  marginBottom: "8px"
+                }}>
+                  {stat.value}
                 </div>
-                <span style={{ color: "#3A3A3A", fontSize: "10px", flexShrink: 0 }}>{activity.time}</span>
+                <div style={{
+                  color: "#666666",
+                  fontSize: "11px",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.1em"
+                }}>
+                  {stat.label}
+                </div>
               </div>
             ))}
           </div>
         </div>
 
+        {/* ── Right Column: Progress & Activity ─────────────────── */}
+        <div style={{
+          flex: "2 1 600px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "80px",
+          paddingTop: "16px",
+        }}>
+
+          {/* Progress Section */}
+          <div>
+            <div style={{
+              color: "#FFFFFF",
+              fontSize: "14px",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              marginBottom: "40px",
+              borderBottom: "1px solid #222222",
+              paddingBottom: "16px",
+            }}>
+              Subject Progression
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+              {SUBJECTS.map((subject, i) => {
+                const progress = [75, 60, 80, 45, 30][i] ?? 50;
+                const completed = Math.round(subject.questions.length * progress / 100);
+
+                return (
+                  <div key={subject.name}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
+                      <span style={{ color: "#CCCCCC", fontSize: "14px", fontWeight: 400 }}>{subject.name}</span>
+                      <span style={{ color: "#666666", fontSize: "14px", fontFamily: "'JetBrains Mono', monospace" }}>
+                        {completed} / {subject.questions.length}
+                      </span>
+                    </div>
+                    {/* B&W Minimalist Progress Bar */}
+                    <div style={{ height: "2px", background: "#1A1A1A", width: "100%" }}>
+                      <div style={{
+                        height: "100%",
+                        width: `${progress}%`,
+                        background: "#FFFFFF",
+                        transition: "width 1s cubic-bezier(0.4, 0, 0.2, 1)",
+                      }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Activity Section */}
+          <div>
+            <div style={{
+              color: "#FFFFFF",
+              fontSize: "14px",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              marginBottom: "40px",
+              borderBottom: "1px solid #222222",
+              paddingBottom: "16px",
+            }}>
+              System Log
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
+              {[
+                { action: "Completed", item: "BFS & Shortest Path", subject: "PDSA", time: "2h ago" },
+                { action: "Started", item: "OOP Fundamentals", subject: "Java", time: "5h ago" },
+                { action: "Completed", item: "Flask Routing", subject: "MAD 1", time: "1d ago" },
+                { action: "Reviewed", item: "Statistics & Math", subject: "Python", time: "2d ago" },
+              ].map((activity, i) => (
+                <div key={i} style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: "24px",
+                  padding: "24px 0",
+                  borderBottom: "1px solid #111111",
+                }}>
+                  {/* Minimalist Dot */}
+                  <div style={{
+                    width: "6px",
+                    height: "6px",
+                    border: "1px solid #FFFFFF",
+                    background: activity.action === "Completed" ? "#FFFFFF" : "transparent",
+                    flexShrink: 0,
+                  }} />
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ color: "#888888", fontSize: "14px" }}>
+                      {activity.action}{" "}
+                      <span style={{ color: "#FFFFFF" }}>{activity.item}</span>
+                      {" "}
+                      <span style={{ color: "#444444" }}>— {activity.subject}</span>
+                    </span>
+                  </div>
+
+                  <span style={{
+                    color: "#555555",
+                    fontSize: "12px",
+                    flexShrink: 0,
+                    fontFamily: "'JetBrains Mono', monospace"
+                  }}>
+                    {activity.time}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );

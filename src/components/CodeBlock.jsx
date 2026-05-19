@@ -1,20 +1,9 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Editor } from "@monaco-editor/react";
-import { supabase } from "../supabaseClient"; // ── STATIC IMPORT: Rock-solid for production ──
+import { supabase } from "../supabaseClient";
 
-/* ── Helper to map snippet language strings to Monaco language IDs ── */
-function getMonacoLanguage(langString) {
-  if (!langString) return "plaintext";
-  const lower = langString.toLowerCase();
-  if (lower.includes("python")) return "python";
-  if (lower.includes("java") && !lower.includes("javascript")) return "java";
-  if (lower.includes("javascript") || lower.includes("vue")) return "javascript";
-  if (lower.includes("sql")) return "sql";
-  if (lower.includes("html") || lower.includes("jinja")) return "html";
-  return "plaintext";
-}
 
-/* ── Component ──────────────────────────────────────────────────── */
+
 export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onCloseTab }) {
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -28,7 +17,6 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
     window.dispatchEvent(new CustomEvent('terminal-output', { detail: { text, type } }));
   };
 
-  // Dedicated helper to safely upsert code content to Supabase
   const saveToSupabase = async (value, pathId) => {
     if (!pathId) return;
     const normalizedPath = pathId.replace(/\\/g, '/');
@@ -45,61 +33,42 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
           code_content: value
         }, { onConflict: 'user_id, file_path' });
 
-      if (error) {
-        console.error('Auto-save database rejection:', error.message);
-      } else {
-        console.log(`Cloud sync complete for: ${normalizedPath} ✔️`);
-      }
+      if (error) console.error('Auto-save error:', error.message);
     } catch (err) {
-      console.error('Failed to run save transaction:', err);
+      console.error('Failed save:', err);
     }
   };
 
-  // Sync state changes and handle virtual loading pipelines when paperId updates
   useEffect(() => {
-    // 1. EMERGENCY FLASH SAVE: If user switches files while a 2s auto-save is pending, force commit immediately
     if (saveTimeoutRef.current && prevPaperIdRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveToSupabase(latestContentRef.current, prevPaperIdRef.current);
       saveTimeoutRef.current = null;
     }
 
-    // Update tracking reference to the new active path identifier
     prevPaperIdRef.current = paperId;
-
     if (!paperId) return;
 
     async function loadSavedCode() {
       setIsLoading(true);
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setContent("");
-          latestContentRef.current = "";
-          setIsLoading(false);
-          return;
-        }
+        if (!user) return;
 
         const normalizedPath = paperId.replace(/\\/g, '/');
-
         const { data, error } = await supabase
           .from('user_code')
           .select('code_content')
           .eq('user_id', user.id)
           .eq('file_path', normalizedPath)
-          .maybeSingle(); // Cleanly handles empty states if student hasn't touched it yet
+          .maybeSingle();
 
         if (error) throw error;
 
-        if (data && data.code_content) {
-          setContent(data.code_content);
-          latestContentRef.current = data.code_content;
-        } else {
-          setContent(""); // Default empty canvas for new question targets
-          latestContentRef.current = "";
-        }
+        setContent(data?.code_content || "");
+        latestContentRef.current = data?.code_content || "";
       } catch (err) {
-        console.error("Failed to load virtual workspace code:", err.message);
+        console.error("Load error:", err.message);
       } finally {
         setIsLoading(false);
       }
@@ -110,12 +79,9 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
 
   const handleEditorChange = (value) => {
     setContent(value);
-    latestContentRef.current = value; // Keep reference pointer up to date instantly
+    latestContentRef.current = value;
 
-    // Auto-save with debounce
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
-    }
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
 
     saveTimeoutRef.current = setTimeout(() => {
       saveToSupabase(value, paperId);
@@ -123,27 +89,14 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
     }, 2000);
   };
 
-  // Extract info from path e.g. "Python\file.py"
   const getFileInfo = (pathId) => {
     if (!pathId) return { filename: 'Unknown', language: 'plaintext' };
     const parts = pathId.split(/[/\\]/);
     const filename = parts[parts.length - 1];
     const ext = filename.split('.').pop();
 
-    const extMap = {
-      'py': 'python',
-      'java': 'java',
-      'js': 'javascript',
-      'jsx': 'javascript',
-      'html': 'html',
-      'sql': 'sql',
-      'vue': 'javascript'
-    };
-
-    return {
-      filename,
-      language: extMap[ext] || 'plaintext'
-    };
+    const extMap = { 'py': 'python', 'java': 'java', 'js': 'javascript', 'jsx': 'javascript', 'html': 'html', 'sql': 'sql', 'vue': 'javascript' };
+    return { filename, language: extMap[ext] || 'plaintext' };
   };
 
   const tabsToRender = openTabs.length > 0 ? openTabs : (paperId ? [paperId] : []);
@@ -155,7 +108,7 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
       flex: 1,
       display: "flex",
       flexDirection: "column",
-      background: "#0E0E0E",
+      background: "#000000",
       overflow: "hidden",
       fontFamily: "'JetBrains Mono', monospace",
     }}>
@@ -164,28 +117,23 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
       <div style={{
         display: "flex",
         alignItems: "center",
-        borderBottom: "1px solid rgba(255, 255, 255, 0.06)",
-        background: "#0E0E0E",
-        paddingLeft: "4px",
-        height: "36px",
+        borderBottom: "1px solid #1A1A1A",
+        background: "#000000",
+        paddingLeft: "16px",
+        height: "44px",
         flexShrink: 0,
         justifyContent: "space-between",
       }}>
-        {/* Scrollable Tabs Area */}
+        {/* Tabs Area */}
         <div style={{
           display: "flex",
-          alignItems: "center",
-          gap: "2px",
+          alignItems: "flex-end", // Align to bottom so borders touch
+          gap: "24px",
           flex: 1,
+          height: "100%",
           overflowX: "auto",
           scrollbarWidth: "none",
-          msOverflowStyle: "none",
         }}>
-          <style>{`
-            div::-webkit-scrollbar {
-              display: none;
-            }
-          `}</style>
           {tabsToRender.map(tabId => {
             const tabInfo = getFileInfo(tabId);
             const isActive = tabId === paperId;
@@ -196,41 +144,28 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
                 key={tabId}
                 onClick={() => onSelectTab?.(tabId)}
                 style={{
-                  background: isActive ? "rgba(255, 255, 255, 0.10)" : "transparent",
-                  border: isActive
-                    ? "1px solid rgba(255, 255, 255, 0.08)"
-                    : "1px solid transparent",
-                  color: isActive ? "#FFFFFF" : "#5A5A5A",
-                  padding: "0 6px 0 12px",
-                  height: "28px",
-                  fontSize: "10px",
+                  color: isActive ? "#FFFFFF" : "#666666",
+                  paddingBottom: "10px",
+                  fontSize: "11px",
                   fontWeight: isActive ? 500 : 400,
-                  letterSpacing: "0.04em",
+                  letterSpacing: "0.05em",
                   display: "flex",
                   alignItems: "center",
-                  gap: "6px",
+                  gap: "12px",
                   whiteSpace: "nowrap",
                   cursor: "pointer",
-                  transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
-                  borderRadius: "8px",
-                  flexShrink: 0,
+                  transition: "all 0.2s ease",
+                  borderBottom: isActive ? "2px solid #FFFFFF" : "2px solid transparent",
                 }}
                 onMouseEnter={e => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
-                    e.currentTarget.style.color = "#9A9A9A";
-                  }
+                  if (!isActive) e.currentTarget.style.color = "#AAAAAA";
                 }}
                 onMouseLeave={e => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "#5A5A5A";
-                  }
+                  if (!isActive) e.currentTarget.style.color = "#666666";
                 }}
               >
                 <span>{tabInfo.filename}</span>
 
-                {/* Close button — hidden if only one tab */}
                 {canClose && (
                   <span
                     onClick={(e) => {
@@ -238,27 +173,13 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
                       onCloseTab?.(tabId);
                     }}
                     style={{
-                      color: isActive ? "#6B6B6B" : "#3A3A3A",
-                      fontSize: "13px",
+                      color: isActive ? "#888888" : "#444444",
+                      fontSize: "14px",
                       lineHeight: 1,
-                      width: "18px",
-                      height: "18px",
-                      borderRadius: "4px",
-                      cursor: "pointer",
-                      transition: "all 150ms cubic-bezier(0.4, 0, 0.2, 1)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
+                      transition: "color 0.2s ease",
                     }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.12)";
-                      e.currentTarget.style.color = "#FFFFFF";
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = isActive ? "#6B6B6B" : "#3A3A3A";
-                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+                    onMouseLeave={e => e.currentTarget.style.color = isActive ? "#888888" : "#444444"}
                   >
                     ×
                   </span>
@@ -270,82 +191,78 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
 
         {/* Pinned Action Area */}
         <div style={{
-          paddingLeft: "12px",
+          paddingLeft: "24px",
           paddingRight: "16px",
           display: "flex",
           alignItems: "center",
-          gap: "12px",
+          gap: "16px",
           flexShrink: 0,
-          background: "#0E0E0E",
         }}>
-          {/* Action Buttons */}
-          <div style={{ display: "flex", gap: "6px" }}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!content.trim() || isExecuting) return;
+          {/* Brutalist RUN Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!content.trim() || isExecuting) return;
 
-                writeToTerminal('', 'clear');
-                writeToTerminal(`> Sending ${currentFileInfo.filename} to Cloud Execution API...\n`);
+              writeToTerminal('', 'clear');
+              writeToTerminal(`> Executing ${currentFileInfo.filename}...\n`);
 
-                setIsExecuting(true);
+              setIsExecuting(true);
+              const lang = monacoLang === "python" ? "python" : "java";
 
-                const lang = monacoLang === "python" ? "python" : "java";
-
-                fetch('https://emkc.org/api/v2/piston/execute', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    language: lang,
-                    version: "*",
-                    files: [{ name: currentFileInfo.filename, content: content }]
-                  })
+              fetch('https://emkc.org/api/v2/piston/execute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  language: lang,
+                  version: "*",
+                  files: [{ name: currentFileInfo.filename, content: content }]
                 })
-                  .then(res => res.json())
-                  .then(data => {
-                    setIsExecuting(false);
-                    if (data.message) {
-                      writeToTerminal(`\nError: ${data.message}\n`);
-                    } else if (data.run) {
-                      if (data.run.stdout) writeToTerminal(data.run.stdout);
-                      if (data.run.stderr) writeToTerminal(data.run.stderr);
-                      writeToTerminal(`\n> Process exited with code ${data.run.code}\n`);
-                    }
-                  })
-                  .catch(err => {
-                    setIsExecuting(false);
-                    writeToTerminal(`\nExecution Error: Failed to connect to sandbox API. ${err.message}\n`);
-                  });
-              }}
-              disabled={isExecuting}
-              style={{
-                background: isExecuting ? "rgba(255, 255, 255, 0.1)" : "rgba(52, 211, 153, 0.1)",
-                border: isExecuting ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid rgba(52, 211, 153, 0.3)",
-                color: isExecuting ? "#A3A3A3" : "#34D399",
-                borderRadius: "6px",
-                padding: "4px 10px",
-                fontSize: "9px",
-                fontWeight: 600,
-                cursor: isExecuting ? "not-allowed" : "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px",
-                transition: "all 200ms ease"
-              }}
-            >
-              {isExecuting ? "⏳ RUNNING..." : "▶ RUN"}
-            </button>
-          </div>
-
-          {/* Language label */}
-          <div style={{
-            color: "#4A4A4A",
-            fontSize: "9px",
-            letterSpacing: "0.06em",
-            whiteSpace: "nowrap",
-          }}>
-            {currentFileInfo.language.toUpperCase()}
-          </div>
+              })
+                .then(res => res.json())
+                .then(data => {
+                  setIsExecuting(false);
+                  if (data.message) {
+                    writeToTerminal(`\nError: ${data.message}\n`);
+                  } else if (data.run) {
+                    if (data.run.stdout) writeToTerminal(data.run.stdout);
+                    if (data.run.stderr) writeToTerminal(data.run.stderr);
+                    writeToTerminal(`\n> Exit Code: ${data.run.code}\n`);
+                  }
+                })
+                .catch(err => {
+                  setIsExecuting(false);
+                  writeToTerminal(`\n> System Failure: ${err.message}\n`);
+                });
+            }}
+            disabled={isExecuting}
+            style={{
+              background: isExecuting ? "#111111" : "#FFFFFF",
+              border: isExecuting ? "1px solid #333333" : "1px solid #FFFFFF",
+              color: isExecuting ? "#666666" : "#000000",
+              padding: "6px 16px",
+              fontSize: "10px",
+              fontWeight: 600,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              cursor: isExecuting ? "not-allowed" : "pointer",
+              transition: "all 0.2s ease"
+            }}
+            onMouseEnter={e => {
+              if (!isExecuting) {
+                e.currentTarget.style.background = "#000000";
+                e.currentTarget.style.color = "#FFFFFF";
+              }
+            }}
+            onMouseLeave={e => {
+              if (!isExecuting) {
+                e.currentTarget.style.background = "#FFFFFF";
+                e.currentTarget.style.color = "#000000";
+              }
+            }}
+          >
+            {isExecuting ? "Running" : "Run"}
+          </button>
         </div>
       </div>
 
@@ -355,6 +272,7 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
         overflow: "hidden",
         position: "relative",
       }}>
+        {/* Using standard vs-dark, but Monaco is flexible */}
         <Editor
           height="100%"
           language={monacoLang}
@@ -363,7 +281,7 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
           onChange={handleEditorChange}
           options={{
             fontFamily: "'JetBrains Mono', monospace",
-            fontSize: 12,
+            fontSize: 13,
             minimap: { enabled: false },
             lineNumbersMinChars: 3,
             scrollBeyondLastLine: false,
@@ -371,27 +289,28 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
             cursorBlinking: "smooth",
             cursorSmoothCaretAnimation: "on",
             formatOnPaste: true,
-            padding: { top: 16, bottom: 16 },
+            padding: { top: 24, bottom: 24 },
           }}
         />
       </div>
 
       <div style={{
-        height: "24px",
+        height: "28px",
         flexShrink: 0,
-        borderTop: "1px solid rgba(255, 255, 255, 0.06)",
-        background: "#0A0A0A",
+        borderTop: "1px solid #1A1A1A",
+        background: "#000000",
         display: "flex",
         alignItems: "center",
         paddingLeft: "16px",
         paddingRight: "16px",
         justifyContent: "space-between",
-        color: "#3D3D3D",
-        fontSize: "9px",
-        letterSpacing: "0.06em",
+        color: "#555555",
+        fontSize: "10px",
+        letterSpacing: "0.05em",
+        textTransform: "uppercase",
       }}>
         <span>{currentFileInfo.filename}</span>
-        <span>{monacoLang.toUpperCase()}</span>
+        <span>{monacoLang}</span>
       </div>
     </div>
   );

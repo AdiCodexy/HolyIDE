@@ -1,94 +1,109 @@
-import { useRef, useEffect } from "react";
-
-/*
- * BackgroundCanvas — "The Dark Aurora"
- * Slow, flowing, blurred gradients in deep blacks and dark greens.
- * Sits behind all content via fixed positioning and -z-index.
- * Uses requestAnimationFrame for buttery-smooth 60fps animation.
- */
-
-// Aurora blob configuration
-const BLOBS = [
-  { x: 0.25, y: 0.3,  rx: 380, ry: 220, speed: 0.00012, phase: 0,     color: [52, 211, 153] },  // accent green
-  { x: 0.70, y: 0.5,  rx: 340, ry: 260, speed: 0.00015, phase: 1.2,   color: [52, 211, 153] },  // accent green
-  { x: 0.50, y: 0.7,  rx: 400, ry: 200, speed: 0.00010, phase: 2.8,   color: [255, 255, 255] }, // white
-  { x: 0.15, y: 0.6,  rx: 300, ry: 240, speed: 0.00018, phase: 4.1,   color: [96, 165, 250] },  // soft blue
-  { x: 0.80, y: 0.25, rx: 350, ry: 230, speed: 0.00013, phase: 5.5,   color: [139, 92, 246] },  // muted purple
-];
+import { useEffect, useRef } from "react";
 
 export default function BackgroundCanvas() {
   const canvasRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
     const ctx = canvas.getContext("2d");
+    let animationFrameId;
+    let particles = [];
+    let mouse = { x: -1000, y: -1000 };
 
-    let animId;
-    let w, h;
+    const initCanvas = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      particles = [];
+      // Keep it sparse and minimalistic (1 particle per 15,000 pixels)
+      const numParticles = Math.floor((canvas.width * canvas.height) / 15000);
 
-    // ── Resize handler ──────────────────────────────────────
-    const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
-      w = window.innerWidth;
-      h = window.innerHeight;
-      canvas.width = w * dpr;
-      canvas.height = h * dpr;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    // ── Draw loop ───────────────────────────────────────────
-    const draw = (time) => {
-      // Clear to deep black
-      ctx.fillStyle = "#0a0a0a";
-      ctx.fillRect(0, 0, w, h);
-
-      // Very heavy blur gives the aurora its soft glow
-      ctx.filter = "blur(100px)";
-
-      for (let i = 0; i < BLOBS.length; i++) {
-        const blob = BLOBS[i];
-        const t = time * blob.speed + blob.phase;
-
-        // Gentle drifting motion — elliptical orbit with varying amplitude
-        const cx = blob.x * w + Math.sin(t) * (w * 0.08) + Math.cos(t * 0.7) * (w * 0.03);
-        const cy = blob.y * h + Math.cos(t * 1.3) * (h * 0.06) + Math.sin(t * 0.5) * (h * 0.04);
-
-        // Breathing radius
-        const scaleX = blob.rx + Math.sin(t * 0.8) * 40;
-        const scaleY = blob.ry + Math.cos(t * 0.6) * 30;
-
-        // Very low alpha — subtle, not distracting
-        const [r, g, b] = blob.color;
-        const alpha = 0.14 + Math.sin(t * 0.4) * 0.04; // oscillates ~0.10–0.18
-
-        const gradient = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(scaleX, scaleY));
-        gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${alpha})`);
-        gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${alpha * 0.4})`);
-        gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-
-        ctx.beginPath();
-        ctx.ellipse(cx, cy, scaleX, scaleY, 0, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
-        ctx.fill();
+      for (let i = 0; i < numParticles; i++) {
+        particles.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          vx: (Math.random() - 0.5) * 0.4, // Very slow movement
+          vy: (Math.random() - 0.5) * 0.4,
+          radius: Math.random() * 1.5 + 0.5,
+        });
       }
-
-      // Reset filter for next frame
-      ctx.filter = "none";
-
-      animId = requestAnimationFrame(draw);
     };
 
-    animId = requestAnimationFrame(draw);
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // ── Cleanup ─────────────────────────────────────────────
+      // Pure brutalist styling: stark white and grays
+      ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+
+      particles.forEach((p, index) => {
+        p.x += p.vx;
+        p.y += p.vy;
+
+        // Bounce seamlessly off the edges
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+        // Draw the dot
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Connect dots that are close to each other
+        for (let j = index + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          const dx = p.x - p2.x;
+          const dy = p.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 120) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+          }
+        }
+
+        // Connect dots to the user's mouse pointer
+        const dxMouse = p.x - mouse.x;
+        const dyMouse = p.y - mouse.y;
+        const distMouse = Math.sqrt(dxMouse * dxMouse + dyMouse * dyMouse);
+
+        if (distMouse < 150) {
+          ctx.beginPath();
+          // Line gets slightly brighter the closer it is to the mouse
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.15 - distMouse / 1000})`;
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(mouse.x, mouse.y);
+          ctx.stroke();
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.05)"; // Reset stroke
+        }
+      });
+
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    const handleResize = () => initCanvas();
+    const handleMouseMove = (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    };
+    const handleMouseLeave = () => {
+      mouse.x = -1000;
+      mouse.y = -1000;
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseleave", handleMouseLeave);
+
+    initCanvas();
+    draw();
+
     return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("resize", resize);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseleave", handleMouseLeave);
+      cancelAnimationFrame(animationFrameId);
     };
   }, []);
 
@@ -97,12 +112,13 @@ export default function BackgroundCanvas() {
       ref={canvasRef}
       style={{
         position: "fixed",
-        inset: 0,
+        top: 0,
+        left: 0,
         width: "100%",
         height: "100%",
-        zIndex: -1,
-        pointerEvents: "none",
-        background: "#0a0a0a",
+        zIndex: -1, // Keeps it behind your text and buttons
+        pointerEvents: "none", // Ensures you can still click the buttons on top of it
+        background: "#000000", // Base pure black color
       }}
     />
   );
