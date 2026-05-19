@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { SUBJECTS } from "./snippets";
 import { supabase } from "../supabaseClient";
 import BackgroundCanvas from "./BackgroundCanvas";
@@ -7,6 +7,39 @@ import AboutPage from "./AboutPage";
 export default function HomePage({ onOpenIDE, onOpenSubject }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const scrollContainerRef = useRef(null);
+  const blockRef = useRef(null);
+
+  const handleScroll = () => {
+    if (!scrollContainerRef.current || !blockRef.current) return;
+    const scrollY = scrollContainerRef.current.scrollTop;
+    
+    // Dispatch custom event to sync with AboutPage animations
+    window.dispatchEvent(new CustomEvent('holy-scroll'));
+
+    // Panning out over 200px of scroll
+    const progress = Math.min(scrollY / 200, 1);
+    
+    // Remove transition for instant scrubbing
+    blockRef.current.style.transition = "none";
+    
+    // Block retreats to the left as you scroll down
+    blockRef.current.style.clipPath = `inset(0 ${progress * 100}% 0 0)`;
+  };
+
+  // ── Initial Hero Animation ────────────────────────────────────
+  useEffect(() => {
+    if (blockRef.current) {
+      // Small delay to ensure the page renders first
+      setTimeout(() => {
+        if (blockRef.current) {
+          blockRef.current.style.transition = "clip-path 1.2s cubic-bezier(0.16, 1, 0.3, 1)";
+          blockRef.current.style.clipPath = "inset(0 0% 0 0)";
+        }
+      }, 100);
+    }
+  }, []);
 
   // ── Listen for auth state changes ─────────────────────────────
   useEffect(() => {
@@ -75,13 +108,18 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
   };
 
   return (
-    <div style={{
+    <div 
+      ref={scrollContainerRef}
+      onScroll={handleScroll}
+      style={{
       position: "fixed",
       inset: 0,
       background: "transparent",
       overflowY: "auto",
       fontFamily: "'JetBrains Mono', monospace",
       zIndex: 200,
+      userSelect: "none",
+      WebkitUserSelect: "none",
     }}>
       <BackgroundCanvas />
       {/* ── Top nav bar ───────────────────────────────────────────── */}
@@ -275,13 +313,41 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
           Practice the previous <br />
           quiz{" "}
           <span style={{
-            background: "#FFFFFF",
-            color: "#000000",
-            padding: "0 16px",
-            fontWeight: 700,
+            position: "relative",
             display: "inline-block",
+            fontWeight: 700,
+            verticalAlign: "bottom",
           }}>
-            question papers
+            {/* Base layer: White text on transparent background */}
+            <span style={{
+              display: "inline-block",
+              padding: "4px 16px 12px 16px",
+              color: "#FFFFFF",
+              lineHeight: 1,
+            }}>
+              question papers
+            </span>
+            {/* Overlay layer: Solid white block with black text, clipped on scroll */}
+            <span 
+              ref={blockRef}
+              style={{
+                position: "absolute",
+                top: 0,
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: "#FFFFFF",
+                color: "#000000",
+                display: "inline-block",
+                padding: "4px 16px 12px 16px",
+                whiteSpace: "nowrap",
+                clipPath: "inset(0 100% 0 0)",
+                pointerEvents: "none",
+                willChange: "clip-path",
+                lineHeight: 1,
+            }}>
+              question papers
+            </span>
           </span>
           <br />
           IITM BS Degree
