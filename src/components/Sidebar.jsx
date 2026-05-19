@@ -1,15 +1,16 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
+import { SUBJECTS } from "./snippets";
 
 function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode }) {
   const isFile = node.type === 'file';
   const isExpanded = expanded[node.path];
-  const isActive = activeId === node.path;
+  const isActive = activeId === (node.id || node.path);
 
   if (isFile) {
     return (
       <button
-        onClick={() => onSelect(node.path)}
+        onClick={() => onSelect(node.id || node.path)}
         style={{
           width: "100%",
           background: "transparent",
@@ -113,30 +114,44 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
     async function loadData() {
       // 1. Load Tree Data
       const { data: qData } = await supabase.from('questions').select('file_path');
-      if (qData) {
-        const paths = qData.map(q => q.file_path).filter(Boolean);
-        const root = [];
+      const root = [];
 
-        paths.forEach(path => {
-          const parts = path.split('/');
-          let currentList = root;
+      const addPath = (fullPath, fileId) => {
+        const parts = fullPath.split('/');
+        let currentList = root;
 
-          for (let i = 0; i < parts.length; i++) {
-            const part = parts[i];
-            const isFile = i === parts.length - 1;
-            let existing = currentList.find(n => n.name === part);
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
+          const isFile = i === parts.length - 1;
+          let existing = currentList.find(n => n.name === part);
 
-            if (isFile) {
-              if (!existing) currentList.push({ name: part, type: 'file', path: path });
-            } else {
-              if (!existing) {
-                existing = { name: part, type: 'directory', path: parts.slice(0, i + 1).join('/'), children: [] };
-                currentList.push(existing);
-              }
-              currentList = existing.children;
+          if (isFile) {
+            if (!existing) currentList.push({ name: part, type: 'file', path: fullPath, id: fileId });
+          } else {
+            if (!existing) {
+              existing = { name: part, type: 'directory', path: parts.slice(0, i + 1).join('/'), children: [] };
+              currentList.push(existing);
             }
+            currentList = existing.children;
+          }
+        }
+      };
+
+      // Restore the beautiful hardcoded folder structure for default questions
+      SUBJECTS.forEach(sub => {
+        sub.questions.forEach(q => {
+          addPath(`${sub.name}/2024/Term 1/${q.label}`, q.id);
+        });
+      });
+
+      // Add any custom questions from the database
+      if (qData) {
+        qData.forEach(q => {
+          if (q.file_path) {
+            addPath(q.file_path, q.file_path);
           }
         });
+      }
 
         const sortTree = (nodes) => {
           nodes.sort((a, b) => {
@@ -151,7 +166,6 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
         const map = {};
         root.forEach(n => { if (n.type === 'directory') map[n.path] = true; });
         setExpanded(map);
-      }
 
       // 2. Load User Profile
       const { data: { session } } = await supabase.auth.getSession();
