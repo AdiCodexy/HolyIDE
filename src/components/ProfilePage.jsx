@@ -1,5 +1,19 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase, isSupabaseConfigured } from "../supabaseClient";
+import { SNIPPETS } from "./snippets";
+
+function getSubjectName(filePath) {
+  if (!filePath) return "Uncategorized";
+  const firstSegment = filePath.split('/')[0] || "Uncategorized";
+  
+  if (firstSegment.startsWith("py-") || firstSegment === "py") return "Python";
+  if (firstSegment.startsWith("pdsa-") || firstSegment === "pdsa") return "PDSA";
+  if (firstSegment.startsWith("mad1-") || firstSegment === "mad1") return "MAD 1";
+  if (firstSegment.startsWith("mad2-") || firstSegment === "mad2") return "MAD 2";
+  if (firstSegment.startsWith("java-") || firstSegment === "java") return "Java";
+  
+  return firstSegment;
+}
 
 // Helper to convert timestamps to "2h ago", "1d ago", etc.
 function timeAgo(dateString) {
@@ -30,87 +44,101 @@ export default function ProfilePage({ onClose }) {
 
   useEffect(() => {
     async function loadData() {
-      const { data: { session } } = await supabase.auth.getSession();
+      if (!isSupabaseConfigured) {
+        setGlobalStats({ solved: 0, total: 0 });
+        setSubjectProgress([]);
+        setActivityLog([]);
+        return;
+      }
 
-      if (!session) return;
-      setSession(session);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        setSession(session);
 
-      // 1. Load Profile Metadata
-      const googleAvatar = session.user.user_metadata?.avatar_url;
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('name, studying')
-        .eq('id', session.user.id)
-        .single();
+        // 1. Load Profile Metadata
+        const googleAvatar = session.user.user_metadata?.avatar_url;
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('name, studying')
+          .eq('id', session.user.id)
+          .single();
 
-      const currentName = profileData?.name || session.user.user_metadata?.full_name || "Student";
-      const currentStudying = profileData?.studying || "Data Science";
+        const currentName = profileData?.name || session.user.user_metadata?.full_name || "Student";
+        const currentStudying = profileData?.studying || "Data Science";
 
-      setProfile({ name: currentName, studying: currentStudying, avatarUrl: googleAvatar });
-      setEditName(currentName);
-      setEditStudying(currentStudying);
+        setProfile({ name: currentName, studying: currentStudying, avatarUrl: googleAvatar });
+        setEditName(currentName);
+        setEditStudying(currentStudying);
 
-      // 2. Load Questions (to get the denominator/totals)
-      const { data: questionsData } = await supabase.from('questions').select('file_path');
+        // 2. Load Questions (to get the denominator/totals)
+        const { data: questionsData } = await supabase.from('questions').select('file_path');
 
-      // 3. Load User Code (to get the numerator/solved and recent activity)
-      const { data: userCodeData } = await supabase
-        .from('user_code')
-        .select('file_path, updated_at, code_content')
-        .eq('user_id', session.user.id)
-        .order('updated_at', { ascending: false });
+        // 3. Load User Code (to get the numerator/solved and recent activity)
+        const { data: userCodeData } = await supabase
+          .from('user_code')
+          .select('file_path, updated_at, code_content')
+          .eq('user_id', session.user.id)
+          .order('updated_at', { ascending: false });
 
-      // 4. Calculate Stats
-      const statsMap = {};
-      let totalQuestions = 0;
-      let totalSolved = 0;
+        // 4. Calculate Stats
+        const statsMap = {};
+        let totalQuestions = 0;
+        let totalSolved = 0;
 
-      // Map out all available questions by subject (First folder in path, e.g. "Python/file.py" -> "Python")
-      questionsData?.forEach(q => {
-        if (!q.file_path) return;
-        const subject = q.file_path.split('/')[0] || "Uncategorized";
-        if (!statsMap[subject]) statsMap[subject] = { name: subject, total: 0, completed: 0 };
-        statsMap[subject].total++;
-        totalQuestions++;
-      });
+        // Map out all available questions by subject
+        questionsData?.forEach(q => {
+          if (!q.file_path) return;
+          const subject = getSubjectName(q.file_path);
+          if (!statsMap[subject]) statsMap[subject] = { name: subject, total: 0, completed: 0 };
+          statsMap[subject].total++;
+          totalQuestions++;
+        });
 
-      // Map out what the user has completed
-      userCodeData?.forEach(c => {
-        if (!c.file_path) return;
-        // We consider it "solved/attempted" if there is code content
-        if (c.code_content && c.code_content.trim() !== "") {
-          const subject = c.file_path.split('/')[0] || "Uncategorized";
-          if (statsMap[subject]) {
-            statsMap[subject].completed++;
-          } else {
-            // If they solved something that doesn't exist in questions anymore
-            statsMap[subject] = { name: subject, total: 1, completed: 1 };
+        // Map out what the user has completed
+        userCodeData?.forEach(c => {
+          if (!c.file_path) return;
+          if (c.code_content && c.code_content.trim() !== "") {
+            const subject = getSubjectName(c.file_path);
+            if (statsMap[subject]) {
+              statsMap[subject].completed++;
+            } else {
+              statsMap[subject] = { name: subject, total: 1, completed: 1 };
+            }
+            totalSolved++;
           }
-          totalSolved++;
-        }
-      });
+        });
 
-      setGlobalStats({ solved: totalSolved, total: totalQuestions });
+        setGlobalStats({ solved: totalSolved, total: totalQuestions });
 
-      // Convert map to array and sort alphabetically
-      const progressArray = Object.values(statsMap).sort((a, b) => a.name.localeCompare(b.name));
-      setSubjectProgress(progressArray);
+        // Convert map to array and sort alphabetically
+        const progressArray = Object.values(statsMap).sort((a, b) => a.name.localeCompare(b.name));
+        setSubjectProgress(progressArray);
 
-      // 5. Generate System Log from the 5 most recently updated files
-      const recent = userCodeData?.slice(0, 5).map(c => {
-        const parts = c.file_path.split('/');
-        const subject = parts[0];
-        const filename = parts[parts.length - 1];
+        // 5. Generate System Log from the 5 most recently updated files
+        const recent = userCodeData?.slice(0, 5).map(c => {
+          const subject = getSubjectName(c.file_path);
+          const filename = c.file_path.split('/').pop() || "code";
+          let cleanName = filename.replace(/\.[^/.]+$/, "");
 
-        return {
-          action: "Updated",
-          item: filename.replace(/\.[^/.]+$/, ""), // Removes the extension (e.g., .py, .java)
-          subject: subject,
-          time: timeAgo(c.updated_at)
-        };
-      }) || [];
+          // Lookup snippet for readable file name
+          if (SNIPPETS[cleanName]) {
+            const snippet = SNIPPETS[cleanName];
+            cleanName = snippet.filename.replace(/\.[^/.]+$/, "");
+          }
 
-      setActivityLog(recent);
+          return {
+            action: "Updated",
+            item: cleanName,
+            subject: subject,
+            time: timeAgo(c.updated_at)
+          };
+        }) || [];
+
+        setActivityLog(recent);
+      } catch (err) {
+        console.error("Failed to load profile data:", err);
+      }
     }
 
     loadData();
@@ -120,15 +148,19 @@ export default function ProfilePage({ onClose }) {
     setProfile(p => ({ ...p, name: editName, studying: editStudying }));
     setEditing(false);
 
-    if (session) {
-      await supabase
-        .from('profiles')
-        .upsert({
-          id: session.user.id,
-          name: editName,
-          studying: editStudying,
-          updated_at: new Date().toISOString()
-        });
+    if (session && isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('profiles')
+          .upsert({
+            id: session.user.id,
+            name: editName,
+            studying: editStudying,
+            updated_at: new Date().toISOString()
+          });
+      } catch (err) {
+        console.error("Failed to save profile:", err);
+      }
     }
   };
 
@@ -154,34 +186,66 @@ export default function ProfilePage({ onClose }) {
         <button
           onClick={onClose}
           style={{
-            background: "transparent", border: "1px solid #333333", color: "#FFFFFF",
-            cursor: "pointer", padding: "10px 24px", fontSize: "12px",
-            letterSpacing: "0.05em", textTransform: "uppercase", transition: "all 0.2s ease",
+            background: "transparent",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            color: "#FFFFFF",
+            cursor: "pointer",
+            padding: "10px 24px",
+            fontSize: "11px",
+            fontFamily: "'JetBrains Mono', monospace",
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+            borderRadius: "4px",
+            transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = "#FFFFFF"; e.currentTarget.style.color = "#000000"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#FFFFFF"; }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#FFFFFF"; e.currentTarget.style.color = "#000000"; e.currentTarget.style.borderColor = "#FFFFFF"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#FFFFFF"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)"; }}
         >
-          Return
+          ← Return to IDE
         </button>
       </div>
 
       {/* ── Main Desktop Grid ─────────────────────────────────── */}
       <div style={{
         maxWidth: "1400px", margin: "0 auto", padding: "0 60px 80px 60px",
-        display: "flex", flexWrap: "wrap", gap: "100px",
+        display: "flex", flexWrap: "wrap", gap: "60px",
       }}>
 
         {/* ── Left Column: Profile & Stats ────────────────────── */}
-        <div style={{ flex: "1 1 350px", display: "flex", flexDirection: "column", gap: "48px" }}>
-
-          <div>
+        <div style={{ flex: "1 1 400px", display: "flex", flexDirection: "column", gap: "32px" }}>
+          
+          <div style={{
+            background: "rgba(255, 255, 255, 0.01)",
+            border: "1px solid rgba(255, 255, 255, 0.05)",
+            borderRadius: "16px",
+            padding: "36px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "24px"
+          }}>
             <div style={{
-              width: "160px", height: "160px",
+              width: "140px", height: "140px",
               background: profile.avatarUrl ? `url(${profile.avatarUrl}) center/cover no-repeat` : "#111111",
-              border: "1px solid #333333", display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: "48px", fontWeight: 300, color: "#FFFFFF", marginBottom: "32px",
+              border: "2px solid #FFFFFF",
+              boxShadow: "0 0 20px rgba(255, 255, 255, 0.05)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "48px", fontWeight: 300, color: "#FFFFFF",
               filter: "grayscale(100%)",
-            }}>
+              borderRadius: "8px",
+              transition: "all 0.3s ease",
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = "scale(1.03)";
+              e.currentTarget.style.boxShadow = "0 0 25px rgba(255, 255, 255, 0.15)";
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = "none";
+              e.currentTarget.style.boxShadow = "0 0 20px rgba(255, 255, 255, 0.05)";
+            }}
+            >
               {!profile.avatarUrl && profile.name.charAt(0).toUpperCase()}
             </div>
 
@@ -191,7 +255,7 @@ export default function ProfilePage({ onClose }) {
                   value={editName} onChange={e => setEditName(e.target.value)} placeholder="Name" autoFocus
                   style={{
                     background: "transparent", border: "none", borderBottom: "1px solid #555555",
-                    color: "#FFFFFF", padding: "8px 0", fontSize: "32px", fontWeight: 300, outline: "none",
+                    color: "#FFFFFF", padding: "8px 0", fontSize: "28px", fontWeight: 300, outline: "none",
                     fontFamily: "inherit", transition: "border-color 0.2s",
                   }}
                   onFocus={e => e.currentTarget.style.borderBottomColor = "#FFFFFF"}
@@ -211,94 +275,160 @@ export default function ProfilePage({ onClose }) {
                   <button onClick={handleSave} style={{
                     background: "#FFFFFF", border: "1px solid #FFFFFF", color: "#000000",
                     padding: "12px 32px", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em",
-                    cursor: "pointer", transition: "opacity 0.2s",
+                    cursor: "pointer", transition: "opacity 0.2s", borderRadius: "4px"
                   }}>Save</button>
                   <button onClick={handleCancel} style={{
                     background: "transparent", border: "1px solid #333333", color: "#888888",
                     padding: "12px 32px", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em",
-                    cursor: "pointer", transition: "color 0.2s",
+                    cursor: "pointer", transition: "color 0.2s", borderRadius: "4px"
                   }}>Cancel</button>
                 </div>
               </div>
             ) : (
-              <div>
-                <h1 style={{ fontSize: "42px", fontWeight: 300, margin: "0 0 12px 0", letterSpacing: "-0.02em" }}>
-                  {profile.name}
-                </h1>
-                <p style={{ color: "#888888", fontSize: "16px", margin: "0 0 32px 0", fontWeight: 400 }}>
-                  {profile.studying}
-                </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                <div>
+                  <h1 style={{ fontSize: "36px", fontWeight: 300, margin: "0 0 8px 0", letterSpacing: "-0.02em" }}>
+                    {profile.name}
+                  </h1>
+                  <p style={{ color: "#888888", fontSize: "14px", margin: "0", fontWeight: 400 }}>
+                    {profile.studying}
+                  </p>
+                </div>
                 <button
                   onClick={() => setEditing(true)}
                   style={{
-                    background: "transparent", border: "none", color: "#666666", cursor: "pointer", padding: "0",
-                    fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.1em",
-                    borderBottom: "1px solid transparent", transition: "all 0.2s",
+                    background: "transparent",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    color: "#888888",
+                    borderRadius: "6px",
+                    padding: "8px 16px",
+                    fontSize: "11px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.1em",
+                    cursor: "pointer",
+                    fontFamily: "'JetBrains Mono', monospace",
+                    width: "fit-content",
+                    transition: "all 0.2s"
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.color = "#FFFFFF"; e.currentTarget.style.borderBottom = "1px solid #FFFFFF"; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = "#666666"; e.currentTarget.style.borderBottom = "1px solid transparent"; }}
+                  onMouseEnter={e => { e.currentTarget.style.color = "#FFFFFF"; e.currentTarget.style.borderColor = "#FFFFFF"; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = "#888888"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)"; }}
                 >
                   Edit Profile
                 </button>
               </div>
             )}
-          </div>
 
-          <div style={{
-            display: "grid", gridTemplateColumns: "1fr 1fr", gap: "40px",
-            borderTop: "1px solid #222222", paddingTop: "48px",
-          }}>
-            {[
-              { value: `${globalStats.solved}`, label: "Questions Solved" },
-              { value: `${globalStats.total}`, label: "Total Available" },
-              { value: "N/A", label: "Day Streak" }, // Requires a dedicated sessions table to track accurately
-              { value: "N/A", label: "Hours Logged" }, // Requires a dedicated sessions table to track accurately
-            ].map((stat, i) => (
-              <div key={i}>
-                <div style={{ color: "#FFFFFF", fontSize: "36px", fontWeight: 300, fontFamily: "'JetBrains Mono', monospace", marginBottom: "8px" }}>
-                  {stat.value}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: "20px",
+              borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+              paddingTop: "24px",
+            }}>
+              {[
+                { 
+                  value: `${globalStats.solved}`, 
+                  label: "Questions Solved",
+                  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#888888" }}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                },
+                { 
+                  value: `${globalStats.total}`, 
+                  label: "Total Available",
+                  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#888888" }}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                },
+                { 
+                  value: "N/A", 
+                  label: "Day Streak",
+                  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#888888" }}><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path></svg>
+                },
+                { 
+                  value: "N/A", 
+                  label: "Hours Logged",
+                  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "#888888" }}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                },
+              ].map((stat, i) => (
+                <div 
+                  key={i} 
+                  style={{
+                    background: "rgba(255, 255, 255, 0.02)",
+                    border: "1px solid rgba(255, 255, 255, 0.05)",
+                    borderRadius: "10px",
+                    padding: "16px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                    transition: "all 0.2s ease",
+                    cursor: "default"
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)";
+                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)";
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.05)";
+                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.02)";
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ color: "#FFFFFF", fontSize: "24px", fontWeight: 600, fontFamily: "'JetBrains Mono', monospace" }}>
+                      {stat.value}
+                    </div>
+                    {stat.icon}
+                  </div>
+                  <div style={{ color: "#666666", fontSize: "9px", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
+                    {stat.label}
+                  </div>
                 </div>
-                <div style={{ color: "#666666", fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.1em" }}>
-                  {stat.label}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
         {/* ── Right Column: Progress & Activity ─────────────────── */}
-        <div style={{ flex: "2 1 600px", display: "flex", flexDirection: "column", gap: "80px", paddingTop: "16px" }}>
+        <div style={{ flex: "2 1 600px", display: "flex", flexDirection: "column", gap: "32px", paddingTop: "0" }}>
 
           {/* Progress Section */}
-          <div>
+          <div style={{
+            background: "rgba(255, 255, 255, 0.01)",
+            border: "1px solid rgba(255, 255, 255, 0.05)",
+            borderRadius: "16px",
+            padding: "36px",
+          }}>
             <div style={{
-              color: "#FFFFFF", fontSize: "14px", letterSpacing: "0.1em", textTransform: "uppercase",
-              marginBottom: "40px", borderBottom: "1px solid #222222", paddingBottom: "16px",
+              color: "#FFFFFF", fontSize: "12px", letterSpacing: "0.1em", textTransform: "uppercase",
+              marginBottom: "32px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: "16px",
+              fontFamily: "'JetBrains Mono', monospace", fontWeight: 600,
+              display: "flex", justifyContent: "space-between"
             }}>
-              Subject Progression
+              <span>Subject Progression</span>
+              <span style={{ color: "#666666" }}>PROGRESS PANEL</span>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "32px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
               {subjectProgress.length === 0 ? (
-                <div style={{ color: "#666", fontSize: "12px", fontFamily: "'JetBrains Mono', monospace" }}>No questions available yet. Start adding them!</div>
+                <div style={{ color: "#666666", fontSize: "12px", fontFamily: "'JetBrains Mono', monospace" }}>No questions available yet. Start adding them!</div>
               ) : (
                 subjectProgress.map((subject) => {
-                  const percentage = subject.total > 0 ? (subject.completed / subject.total) * 100 : 0;
+                  const percentage = subject.total > 0 ? Math.round((subject.completed / subject.total) * 100) : 0;
 
                   return (
                     <div key={subject.name}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                        <span style={{ color: "#CCCCCC", fontSize: "14px", fontWeight: 400 }}>{subject.name}</span>
-                        <span style={{ color: "#666666", fontSize: "14px", fontFamily: "'JetBrains Mono', monospace" }}>
-                          {subject.completed} / {subject.total}
-                        </span>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px", alignItems: "baseline" }}>
+                        <span style={{ color: "#E2E8F0", fontSize: "13px", fontWeight: 500 }}>{subject.name}</span>
+                        <div style={{ display: "flex", gap: "12px", fontFamily: "'JetBrains Mono', monospace", fontSize: "12px" }}>
+                          <span style={{ color: "#666666" }}>
+                            {subject.completed} / {subject.total}
+                          </span>
+                          <span style={{ color: "#FFFFFF", fontWeight: 600 }}>{percentage}%</span>
+                        </div>
                       </div>
-                      <div style={{ height: "2px", background: "#1A1A1A", width: "100%" }}>
+                      <div style={{ height: "6px", background: "rgba(255, 255, 255, 0.05)", width: "100%", borderRadius: "3px", overflow: "hidden" }}>
                         <div style={{
                           height: "100%",
                           width: `${percentage}%`,
                           background: "#FFFFFF",
-                          transition: "width 1s cubic-bezier(0.4, 0, 0.2, 1)",
+                          borderRadius: "3px",
+                          transition: "width 1s cubic-bezier(0.16, 1, 0.3, 1)",
                         }} />
                       </div>
                     </div>
@@ -309,35 +439,85 @@ export default function ProfilePage({ onClose }) {
           </div>
 
           {/* Activity Section */}
-          <div>
+          <div style={{
+            background: "rgba(255, 255, 255, 0.01)",
+            border: "1px solid rgba(255, 255, 255, 0.05)",
+            borderRadius: "16px",
+            padding: "36px",
+          }}>
             <div style={{
-              color: "#FFFFFF", fontSize: "14px", letterSpacing: "0.1em", textTransform: "uppercase",
-              marginBottom: "40px", borderBottom: "1px solid #222222", paddingBottom: "16px",
+              color: "#FFFFFF", fontSize: "12px", letterSpacing: "0.1em", textTransform: "uppercase",
+              marginBottom: "32px", borderBottom: "1px solid rgba(255, 255, 255, 0.08)", paddingBottom: "16px",
+              fontFamily: "'JetBrains Mono', monospace", fontWeight: 600,
+              display: "flex", justifyContent: "space-between"
             }}>
-              System Log
+              <span>System Log</span>
+              <span style={{ color: "#666666" }}>ACTIVITY STREAM</span>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
+            <div style={{ display: "flex", flexDirection: "column", position: "relative", paddingLeft: "24px" }}>
+              {/* Vertical timeline line */}
+              {activityLog.length > 0 && (
+                <div style={{
+                  position: "absolute",
+                  left: "5px",
+                  top: "10px",
+                  bottom: "24px",
+                  width: "1px",
+                  background: "rgba(255, 255, 255, 0.08)"
+                }} />
+              )}
+
               {activityLog.length === 0 ? (
-                <div style={{ color: "#666", fontSize: "12px", fontFamily: "'JetBrains Mono', monospace" }}>Awaiting execution logs...</div>
+                <div style={{ color: "#666666", fontSize: "12px", fontFamily: "'JetBrains Mono', monospace", marginLeft: "-24px" }}>Awaiting execution logs...</div>
               ) : (
                 activityLog.map((activity, i) => (
-                  <div key={i} style={{
-                    display: "flex", alignItems: "baseline", gap: "24px",
-                    padding: "24px 0", borderBottom: "1px solid #111111",
-                  }}>
-                    <div style={{ width: "6px", height: "6px", border: "1px solid #FFFFFF", background: "#FFFFFF", flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ color: "#888888", fontSize: "14px" }}>
-                        {activity.action}{" "}
-                        <span style={{ color: "#FFFFFF" }}>{activity.item}</span>
-                        {" "}
-                        <span style={{ color: "#444444" }}>— {activity.subject}</span>
+                  <div 
+                    key={i} 
+                    style={{
+                      position: "relative",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "6px",
+                      paddingBottom: "24px",
+                      transition: "all 0.2s"
+                    }}
+                  >
+                    {/* Timeline dot */}
+                    <div style={{
+                      position: "absolute",
+                      left: "-23px",
+                      top: "5px",
+                      width: "9px",
+                      height: "9px",
+                      borderRadius: "50%",
+                      border: "1px solid #FFFFFF",
+                      background: "#000000",
+                      zIndex: 2
+                    }} />
+                    
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                      <div style={{ fontSize: "13px", color: "#888888", display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{
+                          fontSize: "9px",
+                          fontFamily: "'JetBrains Mono', monospace",
+                          background: "rgba(255, 255, 255, 0.06)",
+                          color: "#FFFFFF",
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          fontWeight: 600,
+                          letterSpacing: "0.05em"
+                        }}>
+                          {activity.action.toUpperCase()}
+                        </span>
+                        <span style={{ color: "#FFFFFF", fontWeight: 500 }}>{activity.item}</span>
+                        <span style={{ color: "#444444" }}>—</span>
+                        <span style={{ color: "#666666", fontSize: "12px" }}>{activity.subject}</span>
+                      </div>
+                      <span style={{ color: "#555555", fontSize: "11px", fontFamily: "'JetBrains Mono', monospace" }}>
+                        {activity.time}
                       </span>
                     </div>
-                    <span style={{ color: "#555555", fontSize: "12px", flexShrink: 0, fontFamily: "'JetBrains Mono', monospace" }}>
-                      {activity.time}
-                    </span>
                   </div>
                 ))
               )}
