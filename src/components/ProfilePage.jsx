@@ -31,11 +31,12 @@ function timeAgo(dateString) {
 
 export default function ProfilePage({ onClose }) {
   const [session, setSession] = useState(null);
-  const [profile, setProfile] = useState({ name: "Student", studying: "Data Science", avatarUrl: null });
+  const [profile, setProfile] = useState({ name: "Student", studying: "Data Science", aboutMe: "", avatarUrl: null });
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
   const [editStudying, setEditStudying] = useState("");
+  const [editAboutMe, setEditAboutMe] = useState("");
 
   // Dynamic Data States
   const [globalStats, setGlobalStats] = useState({ solved: 0, total: 0 });
@@ -48,6 +49,20 @@ export default function ProfilePage({ onClose }) {
         setGlobalStats({ solved: 0, total: 0 });
         setSubjectProgress([]);
         setActivityLog([]);
+        
+        const guestName = localStorage.getItem("profile_name_guest") || "Student";
+        const guestStudying = localStorage.getItem("profile_studying_guest") || "Data Science";
+        const guestAboutMe = localStorage.getItem("profile_aboutme_guest") || "Passionate computer science student learning data structures, algorithms, and web technologies.";
+        
+        setProfile({
+          name: guestName,
+          studying: guestStudying,
+          aboutMe: guestAboutMe,
+          avatarUrl: null
+        });
+        setEditName(guestName);
+        setEditStudying(guestStudying);
+        setEditAboutMe(guestAboutMe);
         return;
       }
 
@@ -58,18 +73,46 @@ export default function ProfilePage({ onClose }) {
 
         // 1. Load Profile Metadata
         const googleAvatar = session.user.user_metadata?.avatar_url;
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('name, studying')
-          .eq('id', session.user.id)
-          .single();
+        let profileData = null;
+        let aboutMeVal = "";
+
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('name, studying, about_me')
+            .eq('id', session.user.id)
+            .single();
+
+          if (!error && data) {
+            profileData = data;
+            aboutMeVal = data.about_me || "";
+          } else {
+            // Fallback if column does not exist
+            const { data: fallbackData } = await supabase
+              .from('profiles')
+              .select('name, studying')
+              .eq('id', session.user.id)
+              .single();
+            profileData = fallbackData;
+            aboutMeVal = localStorage.getItem(`about_me_${session.user.id}`) || "";
+          }
+        } catch {
+          const { data: fallbackData } = await supabase
+            .from('profiles')
+            .select('name, studying')
+            .eq('id', session.user.id)
+            .single();
+          profileData = fallbackData;
+          aboutMeVal = localStorage.getItem(`about_me_${session.user.id}`) || "";
+        }
 
         const currentName = profileData?.name || session.user.user_metadata?.full_name || "Student";
         const currentStudying = profileData?.studying || "Data Science";
 
-        setProfile({ name: currentName, studying: currentStudying, avatarUrl: googleAvatar });
+        setProfile({ name: currentName, studying: currentStudying, aboutMe: aboutMeVal, avatarUrl: googleAvatar });
         setEditName(currentName);
         setEditStudying(currentStudying);
+        setEditAboutMe(aboutMeVal);
 
         // 2. Load Questions (to get the denominator/totals)
         const { data: questionsData } = await supabase.from('questions').select('file_path');
@@ -145,19 +188,40 @@ export default function ProfilePage({ onClose }) {
   }, []);
 
   const handleSave = async () => {
-    setProfile(p => ({ ...p, name: editName, studying: editStudying }));
+    setProfile(p => ({ ...p, name: editName, studying: editStudying, aboutMe: editAboutMe }));
     setEditing(false);
 
+    if (!isSupabaseConfigured) {
+      localStorage.setItem("profile_name_guest", editName);
+      localStorage.setItem("profile_studying_guest", editStudying);
+      localStorage.setItem("profile_aboutme_guest", editAboutMe);
+      return;
+    }
+
     if (session && isSupabaseConfigured) {
+      localStorage.setItem(`about_me_${session.user.id}`, editAboutMe);
       try {
-        await supabase
+        const { error } = await supabase
           .from('profiles')
           .upsert({
             id: session.user.id,
             name: editName,
             studying: editStudying,
+            about_me: editAboutMe,
             updated_at: new Date().toISOString()
           });
+
+        if (error) {
+          console.warn("Could not save 'about_me' to database, falling back to name/studying only:", error);
+          await supabase
+            .from('profiles')
+            .upsert({
+              id: session.user.id,
+              name: editName,
+              studying: editStudying,
+              updated_at: new Date().toISOString()
+            });
+        }
       } catch (err) {
         console.error("Failed to save profile:", err);
       }
@@ -167,6 +231,7 @@ export default function ProfilePage({ onClose }) {
   const handleCancel = () => {
     setEditName(profile.name);
     setEditStudying(profile.studying);
+    setEditAboutMe(profile.aboutMe);
     setEditing(false);
   };
 
@@ -271,7 +336,20 @@ export default function ProfilePage({ onClose }) {
                   onFocus={e => e.currentTarget.style.borderBottomColor = "#FFFFFF"}
                   onBlur={e => e.currentTarget.style.borderBottomColor = "#555555"}
                 />
-                <div style={{ display: "flex", gap: "16px", marginTop: "16px" }}>
+                <textarea
+                  value={editAboutMe} onChange={e => setEditAboutMe(e.target.value)} placeholder="About Me (interests, goals, bio...)"
+                  rows={4}
+                  style={{
+                    background: "transparent", border: "1px solid rgba(255, 255, 255, 0.1)",
+                    color: "#CCCCCC", padding: "10px", fontSize: "13px", fontWeight: 400, outline: "none",
+                    fontFamily: "inherit", transition: "border-color 0.2s, background-color 0.2s",
+                    borderRadius: "6px",
+                    resize: "vertical"
+                  }}
+                  onFocus={e => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)"; e.currentTarget.style.background = "rgba(255, 255, 255, 0.01)"; }}
+                  onBlur={e => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"; e.currentTarget.style.background = "transparent"; }}
+                />
+                <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
                   <button onClick={handleSave} style={{
                     background: "#FFFFFF", border: "1px solid #FFFFFF", color: "#000000",
                     padding: "12px 32px", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em",
@@ -290,9 +368,23 @@ export default function ProfilePage({ onClose }) {
                   <h1 style={{ fontSize: "36px", fontWeight: 300, margin: "0 0 8px 0", letterSpacing: "-0.02em" }}>
                     {profile.name}
                   </h1>
-                  <p style={{ color: "#888888", fontSize: "14px", margin: "0", fontWeight: 400 }}>
+                  <p style={{ color: "#888888", fontSize: "14px", margin: "0 0 16px 0", fontWeight: 400 }}>
                     {profile.studying}
                   </p>
+                  {profile.aboutMe && (
+                    <div style={{
+                      fontSize: "13px",
+                      lineHeight: "1.6",
+                      color: "#BBBBBB",
+                      borderLeft: "2px solid rgba(255, 255, 255, 0.1)",
+                      paddingLeft: "12px",
+                      marginBottom: "16px",
+                      wordBreak: "break-word",
+                      whiteSpace: "pre-wrap"
+                    }}>
+                      {profile.aboutMe}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => setEditing(true)}
