@@ -3,6 +3,7 @@ import { SUBJECTS } from "./snippets";
 import { supabase } from "../supabaseClient";
 import BackgroundCanvas from "./BackgroundCanvas";
 import AboutPage from "./AboutPage";
+import PrivacyPolicyPage from "./PrivacyPolicyPage";
 
 export default function HomePage({ onOpenIDE, onOpenSubject }) {
   const [user, setUser] = useState(null);
@@ -204,6 +205,27 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
               onMouseLeave={e => e.currentTarget.style.color = "#666666"}
             >
               About
+            </button>
+
+            <button
+              onClick={() => document.getElementById('privacy-section')?.scrollIntoView({ behavior: 'smooth' })}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#666666",
+                fontSize: "11px",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                fontFamily: "'JetBrains Mono', monospace",
+                cursor: "pointer",
+                padding: "4px 0",
+                transition: "color 0.2s ease",
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+              onMouseLeave={e => e.currentTarget.style.color = "#666666"}
+            >
+              Privacy
             </button>
           </div>
         </div>
@@ -409,6 +431,7 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
       </div>
 
       <AboutPage />
+      <PrivacyPolicyPage />
 
       {/* ── Footer ─────────────────────────────────────────────────── */}
       <div style={{
@@ -425,25 +448,46 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
         textTransform: "uppercase",
       }}>
         <span>IIT-M · Holy IDE · Built for students</span>
-        <button 
-          onClick={() => document.getElementById('about-section')?.scrollIntoView({ behavior: 'smooth' })}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#666666",
-            cursor: "pointer",
-            fontSize: "10px",
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            fontFamily: "'JetBrains Mono', monospace",
-            padding: 0,
-            textDecoration: "underline",
-          }}
-          onMouseEnter={(e) => e.currentTarget.style.color = "#FFFFFF"}
-          onMouseLeave={(e) => e.currentTarget.style.color = "#666666"}
-        >
-          About
-        </button>
+        <div style={{ display: "flex", gap: "16px" }}>
+          <button 
+            onClick={() => document.getElementById('about-section')?.scrollIntoView({ behavior: 'smooth' })}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#666666",
+              cursor: "pointer",
+              fontSize: "10px",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              fontFamily: "'JetBrains Mono', monospace",
+              padding: 0,
+              textDecoration: "underline",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = "#FFFFFF"}
+            onMouseLeave={(e) => e.currentTarget.style.color = "#666666"}
+          >
+            About
+          </button>
+          <button 
+            onClick={() => document.getElementById('privacy-section')?.scrollIntoView({ behavior: 'smooth' })}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#666666",
+              cursor: "pointer",
+              fontSize: "10px",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              fontFamily: "'JetBrains Mono', monospace",
+              padding: 0,
+              textDecoration: "underline",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = "#FFFFFF"}
+            onMouseLeave={(e) => e.currentTarget.style.color = "#666666"}
+          >
+            Privacy
+          </button>
+        </div>
       </div>
     </div>
   );

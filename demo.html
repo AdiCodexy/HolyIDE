@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Constellation Canvas Effect - Holy IDE Background</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    /* Premium Dark Theme Styles */
+    :root {
+      --bg-color: #050508;
+      --card-bg: rgba(10, 10, 15, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --accent-color: #ffffff;
+      --accent-glow: rgba(255, 255, 255, 0.9);
+      --text-main: #f3f4f6;
+      --text-muted: #8b949e;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    /* Fixed full screen canvas background */
+    #background-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      pointer-events: auto; /* Allow direct mouse interaction with the canvas */
+      /* Initially applied blur to soften the constellation and avoid distraction */
+      filter: blur(1.5px); 
+      transition: filter 0.15s ease-out;
+    }
+
+    /* Glassmorphic Container & UI Overlay */
+    .ui-container {
+      position: relative;
+      z-index: 10;
+      max-width: 1000px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 60px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+      pointer-events: none; /* Let clicks pass through to canvas if clicked outside UI elements */
+    }
+
+    .ui-element {
+      pointer-events: auto; /* Re-enable pointer events for UI controls */
+    }
+
+    /* Header styling resembling a premium IDE landing page */
+    header {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      animation: pulse 3s infinite ease-in-out;
+    }
+
+    h1 {
+      font-size: clamp(32px, 5vw, 64px);
+      font-weight: 300;
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+      color: #ffffff;
+    }
+
+    h1 span {
+      font-weight: 700;
+      background: linear-gradient(135deg, #ffffff 40%, #cccccc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .subtitle {
+      font-size: clamp(14px, 2vw, 17px);
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    /* Interactive Live Control Panel Card */
+    .control-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      transition: border-color 0.3s ease;
+    }
+
+    .control-panel:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+
+    .panel-title {
+      font-size: 16px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .panel-title::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background-color: #ffffff;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #ffffff;
+    }
+
+    .perf-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    /* Controls Grid */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 24px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-label {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .control-value {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    /* Styled Input Sliders & Colors */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.3s ease;
+    }
+
+    input[type="range"]:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      border: 2px solid #888888;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+      transition: transform 0.1s ease, background-color 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      background-color: #ffffff;
+    }
+
+    input[type="color"] {
+      -webkit-appearance: none;
+      appearance: none;
+      border: none;
+      width: 100%;
+      height: 32px;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+    }
+
+    input[type="color"]::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    input[type="color"]::-webkit-color-swatch {
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Explanation Section */
+    .explanation {
+      background: rgba(10, 10, 15, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 24px;
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-muted);
+    }
+
+    .explanation code {
+      font-family: var(--font-mono);
+      color: #ffffff;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .explanation strong {
+      color: #ffffff;
+    }
+
+    footer {
+      position: relative;
+      z-index: 10;
+      padding: 32px 24px;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.3);
+      border-top: 1px solid rgba(255, 255, 255, 0.03);
+      margin-top: auto;
+    }
+
+    footer a {
+      color: rgba(255, 255, 255, 0.5);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    footer a:hover {
+      color: #ffffff;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.9; }
+      50% { opacity: 0.6; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Fullscreen Interactive Canvas -->
+  <canvas id="background-canvas"></canvas>
+
+  <!-- UI Overlay Content -->
+  <div class="ui-container">
+    
+    <header class="ui-element">
+      <span class="badge">Engine: Lens Zoom + Subtle Glow White</span>
+      <h1>Responsive <span>Constellation</span> Hero</h1>
+      <p class="subtitle">
+        An interactive developer landing background styled with clean white network paths, organic lens bulging under the mouse cursor, and high-intensity ambient glow.
+      </p>
+    </header>
+
+    <!-- Real-time Variables Control Panel -->
+    <section class="control-panel ui-element">
+      <div class="panel-header">
+        <div class="panel-title">Tweak Configuration</div>
+        <div class="perf-badge" id="fps-display">60 FPS · 70 particles</div>
+      </div>
+      
+      <div class="controls-grid">
+        <div class="control-group">
+          <label class="control-label">
+            <span>Particle Count</span>
+            <span class="control-value" id="val-count">70</span>
+          </label>
+          <input type="range" id="input-count" min="20" max="350" value="70">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            <span>Mouse Radius</span>
+            <span class="control-value" id="val-radius">160px</span>
+          </label>
+          <input type="range" id="input-radius" min="80" max="300" value="160">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            <span>Max Connection</span>
+            <span class="control-value" id="val-dist">120px</span>
+          </label>
+          <input type="range" id="input-dist" min="60" max="250" value="120">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            <span>Canvas Blur</span>
+            <span class="control-value" id="val-blur">1.5px</span>
+          </label>
+          <input type="range" id="input-blur" min="0" max="8" step="0.5" value="1.5">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            <span>Bulge Strength</span>
+            <span class="control-value" id="val-bulge">0.8x</span>
+          </label>
+          <input type="range" id="input-bulge" min="0" max="2" step="0.1" value="0.8">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            <span>Particle Speed</span>
+            <span class="control-value" id="val-speed">0.12x</span>
+          </label>
+          <input type="range" id="input-speed" min="0.05" max="1.5" step="0.01" value="0.12">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            <span>Connection Color</span>
+          </label>
+          <input type="color" id="input-glow-color" value="#ffffff">
+        </div>
+
+        <div class="control-group">
+          <label class="control-label">
+            <span>Particle Base Color</span>
+          </label>
+          <input type="color" id="input-part-color" value="#b4b4b4">
+        </div>
+      </div>
+    </section>
+
+    <!-- Details on lens magnification and styling -->
+    <section class="explanation ui-element">
+      <strong>Deep-Field Blur & Lens Bulge:</strong>
+      A CSS <code>filter: blur(...)</code> is applied directly to the canvas to keep the network subtle and non-distracting.
+      When the user hovers, particles near the mouse cursor grow and their render positions are pushed outward in a spherical arc using a sine distribution:
+      <code>drawPosition += normalizedOffset * bulgeStrength * Math.sin(t * Math.PI) * offsetFactor</code>.
+      This simulates a magnifying dome refracting the constellation network.
+      All connection lines are drawn in white and glow with high-intensity <code>shadowBlur</code>.
+    </section>
+
+  </div>
+
+  <footer>
+    Designed for the <a href="#">Holy IDE homepage</a> · Antigravity AI Engine
+  </footer>
+
+  <!-- Vanilla Canvas Script -->
+  <script>
+    // =========================================================================
+    // CONFIGURATION VARIABLES (Easily tweakable)
+    // =========================================================================
+    const CONFIG = {
+      // Particle densities
+      particleCount: 70,
+      
+      // Visuals
+      particleColor: 'rgba(180, 180, 180, 0.35)', // Converted dynamically from input
+      particleBaseRadius: 1.2,
+      particleMaxRadius: 4.0,
+      
+      // Mouse & Glow effects
+      glowColor: '#ffffff', // Connection color: white
+      glowRadius: 30,       // Refined shadowBlur glow radius
+      mouseRadius: 160,
+      
+      // Distortion & Styling
+      bulgeStrength: 0.8,
+      canvasBlur: '1.5px',
+
+      // Kinematics / Connections
+      maxLineDistance: 120,
+      growthSpeed: 0.1,         // Smooth scaling transition (lerp factor)
+      driftSpeedFactor: 0.12    // Scale of random drifting velocity
+    };
+
+    // =========================================================================
+    // CANVAS ENGINE CODE
+    // =========================================================================
+    const canvas = document.getElementById('background-canvas');
+    const ctx = canvas.getContext('2d');
+
+    let particles = [];
+    const mouse = { x: -10000, y: -10000, active: false };
+
+    // Setup High-DPI Sharpness support
+    let dpr = window.devicePixelRatio || 1;
+    let canvasWidth = 0;
+    let canvasHeight = 0;
+
+    function resizeCanvas() {
+      dpr = window.devicePixelRatio || 1;
+      canvasWidth = window.innerWidth;
+      canvasHeight = window.innerHeight;
+
+      // Match display size
+      canvas.style.width = canvasWidth + 'px';
+      canvas.style.height = canvasHeight + 'px';
+
+      // Set hardware dimensions
+      canvas.width = canvasWidth * dpr;
+      canvas.height = canvasHeight * dpr;
+
+      // Scale drawing context to match hardware pixels
+      ctx.scale(dpr, dpr);
+
+      // Re-initialize particles if window resized to avoid void spaces
+      initParticles();
+    }
+
+    // Particle class helper
+    class Particle {
+      constructor() {
+        this.x = Math.random() * canvasWidth;
+        this.y = Math.random() * canvasHeight;
+        
+        // Render coordinates (physics position + lens displacement)
+        this.drawX = this.x;
+        this.drawY = this.y;
+
+        // Random drift direction and speed
+        const angle = Math.random() * Math.PI * 2;
+        const speed = (Math.random() * 0.5 + 0.2) * CONFIG.driftSpeedFactor;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+
+        this.baseRadius = CONFIG.particleBaseRadius + Math.random() * 0.4;
+        this.maxRadius = CONFIG.particleMaxRadius + Math.random() * 1.0;
+        this.radius = this.baseRadius;
+        this.targetRadius = this.baseRadius;
+      }
+
+      update() {
+        // Apply physics velocity
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Bounce off bounds
+        if (this.x < 0) {
+          this.x = 0;
+          this.vx *= -1;
+        } else if (this.x > canvasWidth) {
+          this.x = canvasWidth;
+          this.vx *= -1;
+        }
+
+        if (this.y < 0) {
+          this.y = 0;
+          this.vy *= -1;
+        } else if (this.y > canvasHeight) {
+          this.y = canvasHeight;
+          this.vy *= -1;
+        }
+
+        // Initialize drawing coordinates to physical positions
+        this.drawX = this.x;
+        this.drawY = this.y;
+
+        // Mouse interaction size reaction & zoom lens bulge displacement
+        if (mouse.active) {
+          const dx = this.x - mouse.x;
+          const dy = this.y - mouse.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < CONFIG.mouseRadius) {
+            // Smoothly increase target radius
+            this.targetRadius = this.maxRadius;
+
+            // Lens bulge math: Push outward (zoom/magnify effect)
+            const t = dist / CONFIG.mouseRadius;
+            const displacement = CONFIG.bulgeStrength * Math.sin(t * Math.PI) * 35; // push outward by up to 35px
+            const angle = Math.atan2(dy, dx);
+            this.drawX += Math.cos(angle) * displacement;
+            this.drawY += Math.sin(angle) * displacement;
+          } else {
+            this.targetRadius = this.baseRadius;
+          }
+        } else {
+          this.targetRadius = this.baseRadius;
+        }
+
+        // Smooth size transition (linear interpolation)
+        this.radius += (this.targetRadius - this.radius) * CONFIG.growthSpeed;
+      }
+
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.drawX, this.drawY, this.radius, 0, Math.PI * 2);
+        
+        // Check if inside mouse radius to color it differently
+        if (mouse.active) {
+          const dx = this.x - mouse.x;
+          const dy = this.y - mouse.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < CONFIG.mouseRadius) {
+            // Apply slight glow to hovered particles
+            ctx.fillStyle = CONFIG.glowColor;
+          } else {
+            ctx.fillStyle = CONFIG.particleColor;
+          }
+        } else {
+          ctx.fillStyle = CONFIG.particleColor;
+        }
+        
+        ctx.fill();
+      }
+    }
+
+    function initParticles() {
+      particles = [];
+      for (let i = 0; i < CONFIG.particleCount; i++) {
+        particles.push(new Particle());
+      }
+    }
+
+    // Performance & FPS counter variables
+    let lastTime = performance.now();
+    let frameCount = 0;
+    let fps = 60;
+    const fpsDisplay = document.getElementById('fps-display');
+
+    // Primary Animation Loop
+    function animate(currentTime) {
+      // Calculate performance metrics
+      frameCount++;
+      if (currentTime - lastTime >= 1000) {
+        fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+        fpsDisplay.innerText = `${fps} FPS · ${CONFIG.particleCount} particles`;
+        frameCount = 0;
+        lastTime = currentTime;
+
+        // Visual indicator of performance status
+        if (fps < 50) {
+          fpsDisplay.style.color = '#f87171'; // Red highlight on lag
+          fpsDisplay.style.background = 'rgba(248, 113, 113, 0.1)';
+          fpsDisplay.style.borderColor = 'rgba(248, 113, 113, 0.2)';
+        } else {
+          fpsDisplay.style.color = '#ffffff'; 
+          fpsDisplay.style.background = 'rgba(255, 255, 255, 0.05)';
+          fpsDisplay.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        }
+      }
+
+      // 1. Clear Frame
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+
+      // 2. Update Particles (Positions & Radii)
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].update();
+      }
+
+      // 3. Draw Lines (Network constellation)
+      const faintLines = [];
+      const glowingLines = [];
+
+      for (let i = 0; i < particles.length; i++) {
+        const p1 = particles[i];
+        
+        for (let j = i + 1; j < particles.length; j++) {
+          const p2 = particles[j];
+          
+          const dx = p1.x - p2.x;
+          const dy = p1.y - p2.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < CONFIG.maxLineDistance) {
+            // Determine alpha opacity based on closeness (further = fainter)
+            // Reduced by ~60% to make standard background lines extremely subtle (0.07 max opacity)
+            const alpha = (1 - (dist / CONFIG.maxLineDistance)) * 0.07;
+
+            // Determine if both particles are within the mouse's interactive circle
+            let isGlowing = false;
+            if (mouse.active) {
+              const dx1 = p1.x - mouse.x;
+              const dy1 = p1.y - mouse.y;
+              const distToMouse1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+
+              const dx2 = p2.x - mouse.x;
+              const dy2 = p2.y - mouse.y;
+              const distToMouse2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+              // We consider it glowing if both endpoints are inside the mouse radius
+              if (distToMouse1 < CONFIG.mouseRadius && distToMouse2 < CONFIG.mouseRadius) {
+                isGlowing = true;
+              }
+            }
+
+            if (isGlowing) {
+              glowingLines.push({ p1, p2, alpha });
+            } else {
+              faintLines.push({ p1, p2, alpha });
+            }
+          }
+        }
+      }
+
+      // --- Pass 1: Draw Faint Lines (No Glow, Fast) ---
+      ctx.shadowBlur = 0; // Disable shadow state explicitly
+      ctx.lineWidth = 1;
+      
+      for (let k = 0; k < faintLines.length; k++) {
+        const { p1, p2, alpha } = faintLines[k];
+        // Draw with faint white stroke
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(p1.drawX, p1.drawY);
+        ctx.lineTo(p2.drawX, p2.drawY);
+        ctx.stroke();
+      }
+
+      // --- Pass 2: Draw Glowing Lines (Shadow Blur, Selective & Expensive) ---
+      if (glowingLines.length > 0) {
+        ctx.shadowBlur = CONFIG.glowRadius;
+        ctx.shadowColor = CONFIG.glowColor;
+        ctx.lineWidth = 1.5; // Softer line width to reduce distraction
+        
+        for (let k = 0; k < glowingLines.length; k++) {
+          const { p1, p2 } = glowingLines[k];
+          ctx.strokeStyle = CONFIG.glowColor;
+          ctx.beginPath();
+          ctx.moveTo(p1.drawX, p1.drawY);
+          ctx.lineTo(p2.drawX, p2.drawY);
+          ctx.stroke();
+        }
+        
+        // Reset canvas shadow state to prevent bleed
+        ctx.shadowBlur = 0;
+      }
+
+      // 4. Draw Particles (drawn on top of lines for crisp look)
+      for (let i = 0; i < particles.length; i++) {
+        particles[i].draw();
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // =========================================================================
+    // EVENT LISTENERS & INTERACTIVITY
+    // =========================================================================
+    window.addEventListener('resize', resizeCanvas);
+
+    // Track mouse inputs
+    window.addEventListener('mousemove', (e) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+      mouse.active = true;
+    });
+
+    window.addEventListener('mouseleave', () => {
+      mouse.active = false;
+      mouse.x = -10000;
+      mouse.y = -10000;
+    });
+
+    // Touch support for mobile devices
+    window.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        mouse.x = e.touches[0].clientX;
+        mouse.y = e.touches[0].clientY;
+        mouse.active = true;
+      }
+    });
+
+    window.addEventListener('touchend', () => {
+      mouse.active = false;
+      mouse.x = -10000;
+      mouse.y = -10000;
+    });
+
+    // Initialize Engine
+    resizeCanvas();
+    requestAnimationFrame(animate);
+
+    // =========================================================================
+    // REAL-TIME CONTROLS PANEL INTERACTIVE HANDLERS
+    // =========================================================================
+    const inputCount = document.getElementById('input-count');
+    const inputRadius = document.getElementById('input-radius');
+    const inputDist = document.getElementById('input-dist');
+    const inputBlur = document.getElementById('input-blur');
+    const inputBulge = document.getElementById('input-bulge');
+    const inputSpeed = document.getElementById('input-speed');
+    const inputGlowColor = document.getElementById('input-glow-color');
+    const inputPartColor = document.getElementById('input-part-color');
+
+    const valCount = document.getElementById('val-count');
+    const valRadius = document.getElementById('val-radius');
+    const valDist = document.getElementById('val-dist');
+    const valBlur = document.getElementById('val-blur');
+    const valBulge = document.getElementById('val-bulge');
+    const valSpeed = document.getElementById('val-speed');
+
+    // Helper to convert Hex to RGBA/RGB
+    function hexToRgbString(hex) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+    
+    function hexToRgba(hex, alpha) {
+      const r = parseInt(hex.slice(1, 3), 16);
+      const g = parseInt(hex.slice(3, 5), 16);
+      const b = parseInt(hex.slice(5, 7), 16);
+      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+
+    inputCount.addEventListener('input', (e) => {
+      CONFIG.particleCount = parseInt(e.target.value);
+      valCount.innerText = CONFIG.particleCount;
+      initParticles();
+    });
+
+    inputRadius.addEventListener('input', (e) => {
+      CONFIG.mouseRadius = parseInt(e.target.value);
+      valRadius.innerText = CONFIG.mouseRadius + 'px';
+    });
+
+    inputDist.addEventListener('input', (e) => {
+      CONFIG.maxLineDistance = parseInt(e.target.value);
+      valDist.innerText = CONFIG.maxLineDistance + 'px';
+    });
+
+    inputBlur.addEventListener('input', (e) => {
+      const blurVal = e.target.value + 'px';
+      CONFIG.canvasBlur = blurVal;
+      canvas.style.filter = `blur(${blurVal})`;
+      valBlur.innerText = blurVal;
+    });
+
+    inputBulge.addEventListener('input', (e) => {
+      const bulgeVal = parseFloat(e.target.value);
+      CONFIG.bulgeStrength = bulgeVal;
+      valBulge.innerText = bulgeVal.toFixed(1) + 'x';
+    });
+
+    inputSpeed.addEventListener('input', (e) => {
+      const multiplier = parseFloat(e.target.value);
+      CONFIG.driftSpeedFactor = multiplier;
+      valSpeed.innerText = multiplier.toFixed(2) + 'x';
+      // Regenerate velocities based on new speed configuration
+      particles.forEach(p => {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = (Math.random() * 0.5 + 0.2) * CONFIG.driftSpeedFactor;
+        p.vx = Math.cos(angle) * speed;
+        p.vy = Math.sin(angle) * speed;
+      });
+    });
+
+    inputGlowColor.addEventListener('input', (e) => {
+      const hexColor = e.target.value;
+      CONFIG.glowColor = hexToRgbString(hexColor);
+      document.documentElement.style.setProperty('--accent-color', hexColor);
+      document.documentElement.style.setProperty('--accent-glow', hexToRgba(hexColor, 0.8));
+    });
+
+    inputPartColor.addEventListener('input', (e) => {
+      CONFIG.particleColor = hexToRgba(e.target.value, 0.45);
+    });
+
+  </script>
+</body>
+</html>
