@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Constellation Canvas Effect - Holy IDE Background</title>
+  <title>Morphing Ribbon Waves - Holy IDE Background</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -48,7 +48,6 @@
       height: 100%;
       z-index: 1;
       pointer-events: auto; /* Allow direct mouse interaction with the canvas */
-      /* Initially applied blur to soften the constellation and avoid distraction */
       filter: blur(1.5px); 
       transition: filter 0.15s ease-out;
     }
@@ -315,10 +314,10 @@
   <div class="ui-container">
     
     <header class="ui-element">
-      <span class="badge">Engine: Lens Zoom + Subtle Glow White</span>
-      <h1>Responsive <span>Constellation</span> Hero</h1>
+      <span class="badge">Engine: Morphing Ribbon Waves</span>
+      <h1>Calming <span>Ribbon</span> Waves</h1>
       <p class="subtitle">
-        An interactive developer landing background styled with clean white network paths, organic lens bulging under the mouse cursor, and high-intensity ambient glow.
+        A completely restructured, non-distracting canvas background undulating gently near the bottom of the screen. Responds to mouse coordinate ripple warps with a subtle spotlight overlay.
       </p>
     </header>
 
@@ -326,32 +325,32 @@
     <section class="control-panel ui-element">
       <div class="panel-header">
         <div class="panel-title">Tweak Configuration</div>
-        <div class="perf-badge" id="fps-display">60 FPS · 70 particles</div>
+        <div class="perf-badge" id="fps-display">60 FPS · 3 Waves</div>
       </div>
       
       <div class="controls-grid">
         <div class="control-group">
           <label class="control-label">
-            <span>Particle Count</span>
-            <span class="control-value" id="val-count">70</span>
+            <span>Baseline Position Y</span>
+            <span class="control-value" id="val-baseline">80%</span>
           </label>
-          <input type="range" id="input-count" min="20" max="350" value="70">
+          <input type="range" id="input-baseline" min="10" max="95" value="80">
         </div>
 
         <div class="control-group">
           <label class="control-label">
             <span>Mouse Radius</span>
-            <span class="control-value" id="val-radius">160px</span>
+            <span class="control-value" id="val-radius">200px</span>
           </label>
-          <input type="range" id="input-radius" min="80" max="300" value="160">
+          <input type="range" id="input-radius" min="50" max="400" value="200">
         </div>
 
         <div class="control-group">
           <label class="control-label">
-            <span>Max Connection</span>
-            <span class="control-value" id="val-dist">120px</span>
+            <span>Ripple Strength</span>
+            <span class="control-value" id="val-ripple">25px</span>
           </label>
-          <input type="range" id="input-dist" min="60" max="250" value="120">
+          <input type="range" id="input-ripple" min="0" max="100" value="25">
         </div>
 
         <div class="control-group">
@@ -364,44 +363,20 @@
 
         <div class="control-group">
           <label class="control-label">
-            <span>Bulge Strength</span>
-            <span class="control-value" id="val-bulge">0.8x</span>
-          </label>
-          <input type="range" id="input-bulge" min="0" max="2" step="0.1" value="0.8">
-        </div>
-
-        <div class="control-group">
-          <label class="control-label">
-            <span>Particle Speed</span>
-            <span class="control-value" id="val-speed">0.12x</span>
-          </label>
-          <input type="range" id="input-speed" min="0.05" max="1.5" step="0.01" value="0.12">
-        </div>
-
-        <div class="control-group">
-          <label class="control-label">
-            <span>Connection Color</span>
+            <span>Glow Spotlight Color</span>
           </label>
           <input type="color" id="input-glow-color" value="#ffffff">
-        </div>
-
-        <div class="control-group">
-          <label class="control-label">
-            <span>Particle Base Color</span>
-          </label>
-          <input type="color" id="input-part-color" value="#b4b4b4">
         </div>
       </div>
     </section>
 
     <!-- Details on lens magnification and styling -->
     <section class="explanation ui-element">
-      <strong>Deep-Field Blur & Lens Bulge:</strong>
-      A CSS <code>filter: blur(...)</code> is applied directly to the canvas to keep the network subtle and non-distracting.
-      When the user hovers, particles near the mouse cursor grow and their render positions are pushed outward in a spherical arc using a sine distribution:
-      <code>drawPosition += normalizedOffset * bulgeStrength * Math.sin(t * Math.PI) * offsetFactor</code>.
-      This simulates a magnifying dome refracting the constellation network.
-      All connection lines are drawn in white and glow with high-intensity <code>shadowBlur</code>.
+      <strong>Zero Distraction, Pure Elegance:</strong>
+      Instead of hundreds of floating dots, the background generates 3 overlapping ribbon waves near the bottom of the screen.
+      When the mouse passes horizontally, a native canvas linear gradient creates a spotlight glow and a soft ripple mathematical displacement at the cursor:
+      <code>y += Math.sin(x*0.02 - phase) * rippleStrength * easeForce</code>.
+      This keeps the text and active editor panels free from visual noise while adding high-end interaction cues.
     </section>
 
   </div>
@@ -416,27 +391,12 @@
     // CONFIGURATION VARIABLES (Easily tweakable)
     // =========================================================================
     const CONFIG = {
-      // Particle densities
-      particleCount: 70,
-      
-      // Visuals
-      particleColor: 'rgba(180, 180, 180, 0.35)', // Converted dynamically from input
-      particleBaseRadius: 1.2,
-      particleMaxRadius: 4.0,
-      
-      // Mouse & Glow effects
-      glowColor: '#ffffff', // Connection color: white
-      glowRadius: 30,       // Refined shadowBlur glow radius
-      mouseRadius: 160,
-      
-      // Distortion & Styling
-      bulgeStrength: 0.8,
-      canvasBlur: '1.5px',
-
-      // Kinematics / Connections
-      maxLineDistance: 120,
-      growthSpeed: 0.1,         // Smooth scaling transition (lerp factor)
-      driftSpeedFactor: 0.12    // Scale of random drifting velocity
+      waveCount: 3,
+      baselineRatio: 0.8,                     // Baseline vertical position ratio
+      mouseRadius: 200,                       // Spotlight/influence radius
+      mouseRippleStrength: 25,                // Max ripple displacement
+      canvasBlur: '1.5px',                    // Soften lines into glowing ribbons
+      glowColor: '#ffffff'                    // White glow spotlight
     };
 
     // =========================================================================
@@ -445,13 +405,40 @@
     const canvas = document.getElementById('background-canvas');
     const ctx = canvas.getContext('2d');
 
-    let particles = [];
     const mouse = { x: -10000, y: -10000, active: false };
 
     // Setup High-DPI Sharpness support
     let dpr = window.devicePixelRatio || 1;
     let canvasWidth = 0;
     let canvasHeight = 0;
+
+    // Define 3 overlapping wave characteristics
+    const waves = [
+      {
+        amplitude: 35,
+        frequency: 0.0025,
+        speed: 0.006,
+        phase: 0,
+        opacity: 0.12,
+        thickness: 1.5
+      },
+      {
+        amplitude: 50,
+        frequency: 0.0018,
+        speed: -0.004,
+        phase: Math.PI / 3,
+        opacity: 0.08,
+        thickness: 1.0
+      },
+      {
+        amplitude: 20,
+        frequency: 0.0035,
+        speed: 0.009,
+        phase: Math.PI / 1.5,
+        opacity: 0.05,
+        thickness: 0.8
+      }
+    ];
 
     function resizeCanvas() {
       dpr = window.devicePixelRatio || 1;
@@ -466,119 +453,11 @@
       canvas.width = canvasWidth * dpr;
       canvas.height = canvasHeight * dpr;
 
-      // Scale drawing context to match hardware pixels
+      // Scale drawing context
       ctx.scale(dpr, dpr);
-
-      // Re-initialize particles if window resized to avoid void spaces
-      initParticles();
     }
 
-    // Particle class helper
-    class Particle {
-      constructor() {
-        this.x = Math.random() * canvasWidth;
-        this.y = Math.random() * canvasHeight;
-        
-        // Render coordinates (physics position + lens displacement)
-        this.drawX = this.x;
-        this.drawY = this.y;
-
-        // Random drift direction and speed
-        const angle = Math.random() * Math.PI * 2;
-        const speed = (Math.random() * 0.5 + 0.2) * CONFIG.driftSpeedFactor;
-        this.vx = Math.cos(angle) * speed;
-        this.vy = Math.sin(angle) * speed;
-
-        this.baseRadius = CONFIG.particleBaseRadius + Math.random() * 0.4;
-        this.maxRadius = CONFIG.particleMaxRadius + Math.random() * 1.0;
-        this.radius = this.baseRadius;
-        this.targetRadius = this.baseRadius;
-      }
-
-      update() {
-        // Apply physics velocity
-        this.x += this.vx;
-        this.y += this.vy;
-
-        // Bounce off bounds
-        if (this.x < 0) {
-          this.x = 0;
-          this.vx *= -1;
-        } else if (this.x > canvasWidth) {
-          this.x = canvasWidth;
-          this.vx *= -1;
-        }
-
-        if (this.y < 0) {
-          this.y = 0;
-          this.vy *= -1;
-        } else if (this.y > canvasHeight) {
-          this.y = canvasHeight;
-          this.vy *= -1;
-        }
-
-        // Initialize drawing coordinates to physical positions
-        this.drawX = this.x;
-        this.drawY = this.y;
-
-        // Mouse interaction size reaction & zoom lens bulge displacement
-        if (mouse.active) {
-          const dx = this.x - mouse.x;
-          const dy = this.y - mouse.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (dist < CONFIG.mouseRadius) {
-            // Smoothly increase target radius
-            this.targetRadius = this.maxRadius;
-
-            // Lens bulge math: Push outward (zoom/magnify effect)
-            const t = dist / CONFIG.mouseRadius;
-            const displacement = CONFIG.bulgeStrength * Math.sin(t * Math.PI) * 35; // push outward by up to 35px
-            const angle = Math.atan2(dy, dx);
-            this.drawX += Math.cos(angle) * displacement;
-            this.drawY += Math.sin(angle) * displacement;
-          } else {
-            this.targetRadius = this.baseRadius;
-          }
-        } else {
-          this.targetRadius = this.baseRadius;
-        }
-
-        // Smooth size transition (linear interpolation)
-        this.radius += (this.targetRadius - this.radius) * CONFIG.growthSpeed;
-      }
-
-      draw() {
-        ctx.beginPath();
-        ctx.arc(this.drawX, this.drawY, this.radius, 0, Math.PI * 2);
-        
-        // Check if inside mouse radius to color it differently
-        if (mouse.active) {
-          const dx = this.x - mouse.x;
-          const dy = this.y - mouse.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < CONFIG.mouseRadius) {
-            // Apply slight glow to hovered particles
-            ctx.fillStyle = CONFIG.glowColor;
-          } else {
-            ctx.fillStyle = CONFIG.particleColor;
-          }
-        } else {
-          ctx.fillStyle = CONFIG.particleColor;
-        }
-        
-        ctx.fill();
-      }
-    }
-
-    function initParticles() {
-      particles = [];
-      for (let i = 0; i < CONFIG.particleCount; i++) {
-        particles.push(new Particle());
-      }
-    }
-
-    // Performance & FPS counter variables
+    // Performance tracking
     let lastTime = performance.now();
     let frameCount = 0;
     let fps = 60;
@@ -590,111 +469,79 @@
       frameCount++;
       if (currentTime - lastTime >= 1000) {
         fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
-        fpsDisplay.innerText = `${fps} FPS · ${CONFIG.particleCount} particles`;
+        fpsDisplay.innerText = `${fps} FPS · 3 Waves`;
         frameCount = 0;
         lastTime = currentTime;
-
-        // Visual indicator of performance status
-        if (fps < 50) {
-          fpsDisplay.style.color = '#f87171'; // Red highlight on lag
-          fpsDisplay.style.background = 'rgba(248, 113, 113, 0.1)';
-          fpsDisplay.style.borderColor = 'rgba(248, 113, 113, 0.2)';
-        } else {
-          fpsDisplay.style.color = '#ffffff'; 
-          fpsDisplay.style.background = 'rgba(255, 255, 255, 0.05)';
-          fpsDisplay.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-        }
       }
 
       // 1. Clear Frame
       ctx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-      // 2. Update Particles (Positions & Radii)
-      for (let i = 0; i < particles.length; i++) {
-        particles[i].update();
-      }
+      const baselineY = canvasHeight * CONFIG.baselineRatio;
 
-      // 3. Draw Lines (Network constellation)
-      const faintLines = [];
-      const glowingLines = [];
-
-      for (let i = 0; i < particles.length; i++) {
-        const p1 = particles[i];
+      // 2. Draw Ribbon Waves
+      for (let i = 0; i < waves.length; i++) {
+        const wave = waves[i];
         
-        for (let j = i + 1; j < particles.length; j++) {
-          const p2 = particles[j];
-          
-          const dx = p1.x - p2.x;
-          const dy = p1.y - p2.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
+        // Update wave phase
+        wave.phase += wave.speed;
 
-          if (dist < CONFIG.maxLineDistance) {
-            // Determine alpha opacity based on closeness (further = fainter)
-            // Reduced by ~60% to make standard background lines extremely subtle (0.07 max opacity)
-            const alpha = (1 - (dist / CONFIG.maxLineDistance)) * 0.07;
+        ctx.beginPath();
+        ctx.lineWidth = wave.thickness;
 
-            // Determine if both particles are within the mouse's interactive circle
-            let isGlowing = false;
-            if (mouse.active) {
-              const dx1 = p1.x - mouse.x;
-              const dy1 = p1.y - mouse.y;
-              const distToMouse1 = Math.sqrt(dx1 * dx1 + dy1 * dy1);
+        // Trace wave from left to right
+        for (let x = 0; x <= canvasWidth; x += 4) {
+          // Double harmonic wave equation for biological complexity
+          let y = baselineY + Math.sin(x * wave.frequency + wave.phase) * wave.amplitude;
+          y += Math.cos(x * (wave.frequency * 2.1) - wave.phase * 0.4) * (wave.amplitude * 0.25);
 
-              const dx2 = p2.x - mouse.x;
-              const dy2 = p2.y - mouse.y;
-              const distToMouse2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
-
-              // We consider it glowing if both endpoints are inside the mouse radius
-              if (distToMouse1 < CONFIG.mouseRadius && distToMouse2 < CONFIG.mouseRadius) {
-                isGlowing = true;
-              }
-            }
-
-            if (isGlowing) {
-              glowingLines.push({ p1, p2, alpha });
-            } else {
-              faintLines.push({ p1, p2, alpha });
+          // Localized mouse coordinate ripple distortion
+          if (mouse.active) {
+            const dist = Math.abs(x - mouse.x);
+            if (dist < CONFIG.mouseRadius) {
+              const force = (CONFIG.mouseRadius - dist) / CONFIG.mouseRadius;
+              const easeForce = force * force * (3 - 2 * force); // Smooth step ease
+              const ripple = Math.sin(x * 0.02 - wave.phase * 2) * CONFIG.mouseRippleStrength * easeForce;
+              y += ripple;
             }
           }
-        }
-      }
 
-      // --- Pass 1: Draw Faint Lines (No Glow, Fast) ---
-      ctx.shadowBlur = 0; // Disable shadow state explicitly
-      ctx.lineWidth = 1;
-      
-      for (let k = 0; k < faintLines.length; k++) {
-        const { p1, p2, alpha } = faintLines[k];
-        // Draw with faint white stroke
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-        ctx.beginPath();
-        ctx.moveTo(p1.drawX, p1.drawY);
-        ctx.lineTo(p2.drawX, p2.drawY);
+          if (x === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+
+        // Create linear gradient for spotlight glow
+        const grad = ctx.createLinearGradient(0, 0, canvasWidth, 0);
+        const mousePercent = mouse.x / canvasWidth;
+
+        // Base opacity colors
+        grad.addColorStop(0, `rgba(255, 255, 255, ${wave.opacity})`);
+
+        if (mouse.active && mousePercent >= 0 && mousePercent <= 1) {
+          const leftStop = Math.max(0, mousePercent - CONFIG.mouseRadius / canvasWidth);
+          const rightStop = Math.min(1, mousePercent + CONFIG.mouseRadius / canvasWidth);
+
+          // Helper helper hex to rgb to keep glow opacity
+          const baseColor = CONFIG.glowColor.startsWith('#') 
+            ? hexToRgbString(CONFIG.glowColor) 
+            : CONFIG.glowColor;
+
+          const glowStop = baseColor.startsWith('rgb')
+            ? baseColor.replace('rgb', 'rgba').replace(')', `, ${wave.opacity * 4.0})`)
+            : `rgba(255, 255, 255, ${wave.opacity * 4.0})`;
+
+          grad.addColorStop(leftStop, `rgba(255, 255, 255, ${wave.opacity})`);
+          grad.addColorStop(mousePercent, glowStop); // Spotlight center
+          grad.addColorStop(rightStop, `rgba(255, 255, 255, ${wave.opacity})`);
+        }
+
+        grad.addColorStop(1, `rgba(255, 255, 255, ${wave.opacity})`);
+
+        ctx.strokeStyle = grad;
         ctx.stroke();
-      }
-
-      // --- Pass 2: Draw Glowing Lines (Shadow Blur, Selective & Expensive) ---
-      if (glowingLines.length > 0) {
-        ctx.shadowBlur = CONFIG.glowRadius;
-        ctx.shadowColor = CONFIG.glowColor;
-        ctx.lineWidth = 1.5; // Softer line width to reduce distraction
-        
-        for (let k = 0; k < glowingLines.length; k++) {
-          const { p1, p2 } = glowingLines[k];
-          ctx.strokeStyle = CONFIG.glowColor;
-          ctx.beginPath();
-          ctx.moveTo(p1.drawX, p1.drawY);
-          ctx.lineTo(p2.drawX, p2.drawY);
-          ctx.stroke();
-        }
-        
-        // Reset canvas shadow state to prevent bleed
-        ctx.shadowBlur = 0;
-      }
-
-      // 4. Draw Particles (drawn on top of lines for crisp look)
-      for (let i = 0; i < particles.length; i++) {
-        particles[i].draw();
       }
 
       requestAnimationFrame(animate);
@@ -740,41 +587,29 @@
     // =========================================================================
     // REAL-TIME CONTROLS PANEL INTERACTIVE HANDLERS
     // =========================================================================
-    const inputCount = document.getElementById('input-count');
+    const inputBaseline = document.getElementById('input-baseline');
     const inputRadius = document.getElementById('input-radius');
-    const inputDist = document.getElementById('input-dist');
+    const inputRipple = document.getElementById('input-ripple');
     const inputBlur = document.getElementById('input-blur');
-    const inputBulge = document.getElementById('input-bulge');
-    const inputSpeed = document.getElementById('input-speed');
     const inputGlowColor = document.getElementById('input-glow-color');
-    const inputPartColor = document.getElementById('input-part-color');
 
-    const valCount = document.getElementById('val-count');
+    const valBaseline = document.getElementById('val-baseline');
     const valRadius = document.getElementById('val-radius');
-    const valDist = document.getElementById('val-dist');
+    const valRipple = document.getElementById('val-ripple');
     const valBlur = document.getElementById('val-blur');
-    const valBulge = document.getElementById('val-bulge');
-    const valSpeed = document.getElementById('val-speed');
 
-    // Helper to convert Hex to RGBA/RGB
+    // Helper to convert Hex to RGB string
     function hexToRgbString(hex) {
       const r = parseInt(hex.slice(1, 3), 16);
       const g = parseInt(hex.slice(3, 5), 16);
       const b = parseInt(hex.slice(5, 7), 16);
       return `rgb(${r}, ${g}, ${b})`;
     }
-    
-    function hexToRgba(hex, alpha) {
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    }
 
-    inputCount.addEventListener('input', (e) => {
-      CONFIG.particleCount = parseInt(e.target.value);
-      valCount.innerText = CONFIG.particleCount;
-      initParticles();
+    inputBaseline.addEventListener('input', (e) => {
+      const ratio = parseInt(e.target.value) / 100;
+      CONFIG.baselineRatio = ratio;
+      valBaseline.innerText = e.target.value + '%';
     });
 
     inputRadius.addEventListener('input', (e) => {
@@ -782,9 +617,9 @@
       valRadius.innerText = CONFIG.mouseRadius + 'px';
     });
 
-    inputDist.addEventListener('input', (e) => {
-      CONFIG.maxLineDistance = parseInt(e.target.value);
-      valDist.innerText = CONFIG.maxLineDistance + 'px';
+    inputRipple.addEventListener('input', (e) => {
+      CONFIG.mouseRippleStrength = parseInt(e.target.value);
+      valRipple.innerText = CONFIG.mouseRippleStrength + 'px';
     });
 
     inputBlur.addEventListener('input', (e) => {
@@ -794,34 +629,10 @@
       valBlur.innerText = blurVal;
     });
 
-    inputBulge.addEventListener('input', (e) => {
-      const bulgeVal = parseFloat(e.target.value);
-      CONFIG.bulgeStrength = bulgeVal;
-      valBulge.innerText = bulgeVal.toFixed(1) + 'x';
-    });
-
-    inputSpeed.addEventListener('input', (e) => {
-      const multiplier = parseFloat(e.target.value);
-      CONFIG.driftSpeedFactor = multiplier;
-      valSpeed.innerText = multiplier.toFixed(2) + 'x';
-      // Regenerate velocities based on new speed configuration
-      particles.forEach(p => {
-        const angle = Math.random() * Math.PI * 2;
-        const speed = (Math.random() * 0.5 + 0.2) * CONFIG.driftSpeedFactor;
-        p.vx = Math.cos(angle) * speed;
-        p.vy = Math.sin(angle) * speed;
-      });
-    });
-
     inputGlowColor.addEventListener('input', (e) => {
       const hexColor = e.target.value;
-      CONFIG.glowColor = hexToRgbString(hexColor);
+      CONFIG.glowColor = hexColor;
       document.documentElement.style.setProperty('--accent-color', hexColor);
-      document.documentElement.style.setProperty('--accent-glow', hexToRgba(hexColor, 0.8));
-    });
-
-    inputPartColor.addEventListener('input', (e) => {
-      CONFIG.particleColor = hexToRgba(e.target.value, 0.45);
     });
 
   </script>
