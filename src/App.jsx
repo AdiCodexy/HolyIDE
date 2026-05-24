@@ -7,6 +7,7 @@ import Terminal from "./components/Terminal";
 import ProfilePage from "./components/ProfilePage";
 import HomePage from "./components/HomePage";
 import QuestionPanel from "./components/QuestionPanel";
+import { supabase, isSupabaseConfigured } from "./supabaseClient";
 
 // ── Clamp helper ───────────────────────────────────────────────────
 const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
@@ -59,13 +60,81 @@ function ResizeHandle({ direction, onDragStart }) {
 
 // ── Main layout ────────────────────────────────────────────────────
 export default function App() {
-  const [activePaperId, setActivePaperId] = useState("Python/2024/Term1/python_basics.py");
-  const [openTabs, setOpenTabs] = useState(["Python/2024/Term1/python_basics.py"]);
+  const [activePaperId, setActivePaperId] = useState("py-1");
+  const [openTabs, setOpenTabs] = useState(["py-1"]);
   const [showProfile, setShowProfile] = useState(false);
   const [currentView, setCurrentView] = useState("home");
   const [subjectFilter, setSubjectFilter] = useState(null);
 
+  const [activeQuestion, setActiveQuestion] = useState(null);
+  const [loadingQuestion, setLoadingQuestion] = useState(false);
+
   const [isTransitioning, setIsTransitioning] = useState(false);
+
+  // ── Fetch Question Details centrally ─────────────────────────────
+  useEffect(() => {
+    if (!activePaperId) return;
+
+    const filePath = activePaperId.replace(/\\/g, '/');
+
+    async function fetchQuestion() {
+      if (!isSupabaseConfigured) {
+        setActiveQuestion(null);
+        return;
+      }
+
+      if (window.__questionCache?.[filePath] !== undefined) {
+        setActiveQuestion(window.__questionCache[filePath]);
+        setLoadingQuestion(false);
+        return;
+      }
+
+      setLoadingQuestion(true);
+      try {
+        let queryData = null;
+        let queryError = null;
+
+        // Try to fetch with test_cases column first
+        const { data, error } = await supabase
+          .from("questions")
+          .select("screenshot_url, question_text, answer_text, test_cases")
+          .eq("file_path", filePath)
+          .maybeSingle();
+
+        queryData = data;
+        queryError = error;
+
+        // If the column test_cases doesn't exist, we'll get an error containing 'test_cases'. Fallback.
+        if (queryError && queryError.message && (queryError.message.includes("test_cases") || queryError.code === "PGRST204" || queryError.code === "42703")) {
+          const fallbackRes = await supabase
+            .from("questions")
+            .select("screenshot_url, question_text, answer_text")
+            .eq("file_path", filePath)
+            .maybeSingle();
+          queryData = fallbackRes.data;
+          queryError = fallbackRes.error;
+        }
+
+        if (!window.__questionCache) window.__questionCache = {};
+
+        if (queryError) {
+          window.__questionCache[filePath] = null;
+          setActiveQuestion(null);
+        } else {
+          window.__questionCache[filePath] = queryData;
+          setActiveQuestion(queryData);
+        }
+      } catch {
+        if (!window.__questionCache) window.__questionCache = {};
+        window.__questionCache[filePath] = null;
+        setActiveQuestion(null);
+      } finally {
+        setLoadingQuestion(false);
+      }
+    }
+
+    fetchQuestion();
+  }, [activePaperId]);
 
   const handleTransition = useCallback((action) => {
     setIsTransitioning(true);
@@ -244,6 +313,9 @@ export default function App() {
               activePaperId={activePaperId}
               width={questionWidth}
               setWidth={setQuestionWidth}
+              question={activeQuestion}
+              loading={loadingQuestion}
+              setQuestion={setActiveQuestion}
             />
 
             {/* ── Vertical resize handle for Question panel ── */}
@@ -254,6 +326,7 @@ export default function App() {
               openTabs={openTabs}
               onSelectTab={setActivePaperId}
               onCloseTab={handleCloseTab}
+              testCases={activeQuestion?.test_cases || []}
             />
           </div>
 

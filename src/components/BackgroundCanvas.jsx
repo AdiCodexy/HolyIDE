@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 // CONFIGURATION VARIABLES (Easily tweakable)
 // =========================================================================
 const CONFIG = {
-  waveCount: 3,                           // Number of overlapping ribbon waves
+  waveCount: 5,                           // Number of overlapping ribbon waves
   baselineRatio: 0.8,                     // Vertical position: 0.8 means 80% down the screen (bottom area)
   mouseRadius: 200,                       // Horizontal mouse interactive radius
   mouseRippleStrength: 25,                 // Ripple amplitude distortion at mouse cursor
@@ -53,6 +53,22 @@ export default function BackgroundCanvas() {
         phase: Math.PI / 1.5,
         opacity: 0.05,
         thickness: 0.8
+      },
+      {
+        amplitude: 40,
+        frequency: 0.0021,
+        speed: -0.005,
+        phase: Math.PI / 4,
+        opacity: 0.07,
+        thickness: 1.2
+      },
+      {
+        amplitude: 28,
+        frequency: 0.003,
+        speed: 0.007,
+        phase: Math.PI / 2,
+        opacity: 0.06,
+        thickness: 0.9
       }
     ];
 

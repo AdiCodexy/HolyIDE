@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-function AnimatedSection({ children, delay = 0 }) {
+function AnimatedSection({ children }) {
     const ref = useRef(null);
 
     useEffect(() => {

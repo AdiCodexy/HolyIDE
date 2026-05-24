@@ -2,9 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../supabaseClient";
 import AddQuestionModal from "./AddQuestionModal";
 
-export default function QuestionPanel({ activePaperId, width }) {
-  const [question, setQuestion] = useState(null);
-  const [loading, setLoading] = useState(false);
+export default function QuestionPanel({ activePaperId, width, question, loading, setQuestion }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSolution, setShowSolution] = useState(false); // Collapsible status toggle state for solutions
@@ -42,50 +40,9 @@ export default function QuestionPanel({ activePaperId, width }) {
     return () => window.removeEventListener("keydown", handleGlobalShortcut);
   }, [isAdmin]);
 
-  // 3. Document query listener tracking code file pathway selections
+  // 3. Reset solution view on active paper changes
   useEffect(() => {
-    if (!activePaperId) return;
-
-    const filePath = activePaperId.replace(/\\/g, '/');
-
-    async function fetchQuestion() {
-      if (!isSupabaseConfigured) return;
-
-      if (window.__questionCache?.[filePath] !== undefined) {
-        setQuestion(window.__questionCache[filePath]);
-        setLoading(false);
-        setShowSolution(false);
-        return;
-      }
-
-      setLoading(true);
-      setShowSolution(false); // Make sure answers default to a hidden state on file swap!
-      try {
-        const { data, error } = await supabase
-          .from("questions")
-          .select("screenshot_url, question_text, answer_text") // Fetches answer text column safely
-          .eq("file_path", filePath)
-          .single();
-
-        if (!window.__questionCache) window.__questionCache = {};
-        
-        if (error) {
-          window.__questionCache[filePath] = null;
-          setQuestion(null);
-        } else {
-          window.__questionCache[filePath] = data;
-          setQuestion(data);
-        }
-      } catch (err) {
-        if (!window.__questionCache) window.__questionCache = {};
-        window.__questionCache[filePath] = null;
-        setQuestion(null);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchQuestion();
+    setTimeout(() => setShowSolution(false), 0);
   }, [activePaperId]);
 
   if (collapsed) {

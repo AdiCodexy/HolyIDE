@@ -8,7 +8,7 @@ import ReviewPage from "./ReviewPage";
 
 export default function HomePage({ onOpenIDE, onOpenSubject }) {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!supabase);
 
   const scrollContainerRef = useRef(null);
   const blockRef = useRef(null);
@@ -46,7 +46,6 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
   // ── Listen for auth state changes ─────────────────────────────
   useEffect(() => {
     if (!supabase) {
-      setLoading(false);
       return;
     }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { supabase } from "../supabaseClient";
+import { supabase, isSupabaseConfigured } from "../supabaseClient";
 import { SUBJECTS } from "./snippets";
 
 function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode }) {
@@ -115,7 +115,15 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
   useEffect(() => {
     async function loadData() {
       // 1. Load Tree Data
-      const { data: qData } = await supabase.from('questions').select('file_path');
+      let qData = null;
+      if (isSupabaseConfigured) {
+        try {
+          const { data } = await supabase.from('questions').select('file_path');
+          qData = data;
+        } catch (e) {
+          console.error("Error loading custom questions:", e);
+        }
+      }
       const root = [];
 
       const addPath = (fullPath, fileId) => {
@@ -155,30 +163,36 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
         });
       }
 
-        const sortTree = (nodes) => {
-          nodes.sort((a, b) => {
-            if (a.type === b.type) return a.name.localeCompare(b.name);
-            return a.type === 'directory' ? -1 : 1;
-          });
-          nodes.forEach(n => { if (n.children) sortTree(n.children); });
-        };
-        sortTree(root);
-        setTreeData(root);
+      const sortTree = (nodes) => {
+        nodes.sort((a, b) => {
+          if (a.type === b.type) return a.name.localeCompare(b.name);
+          return a.type === 'directory' ? -1 : 1;
+        });
+        nodes.forEach(n => { if (n.children) sortTree(n.children); });
+      };
+      sortTree(root);
+      setTreeData(root);
 
-        const map = {};
-        root.forEach(n => { if (n.type === 'directory') map[n.path] = true; });
-        setExpanded(map);
+      const map = {};
+      root.forEach(n => { if (n.type === 'directory') map[n.path] = true; });
+      setExpanded(map);
 
       // 2. Load User Profile
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const googleAvatar = session.user.user_metadata?.avatar_url;
-        const { data: pData } = await supabase.from('profiles').select('name').eq('id', session.user.id).single();
+      if (isSupabaseConfigured) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const googleAvatar = session.user.user_metadata?.avatar_url;
+            const { data: pData } = await supabase.from('profiles').select('name').eq('id', session.user.id).single();
 
-        setUserProfile({
-          name: pData?.name || session.user.user_metadata?.full_name || "Student",
-          avatarUrl: googleAvatar
-        });
+            setUserProfile({
+              name: pData?.name || session.user.user_metadata?.full_name || "Student",
+              avatarUrl: googleAvatar
+            });
+          }
+        } catch (e) {
+          console.error("Error loading user profile:", e);
+        }
       }
     }
     loadData();

@@ -5,6 +5,11 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
   const [topic, setTopic] = useState("");
   const [questionText, setQuestionText] = useState("");
   const [answerText, setAnswerText] = useState(""); // New state for solution code
+  const [testCases, setTestCases] = useState([
+    { input: "", expected: "" },
+    { input: "", expected: "" },
+    { input: "", expected: "" }
+  ]);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,10 +46,33 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
     }
   };
 
+  const handleTestCaseChange = (index, field, value) => {
+    setTestCases(prev => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  };
+
+  const addTestCase = () => {
+    setTestCases(prev => [...prev, { input: "", expected: "" }]);
+  };
+
+  const removeTestCase = (index) => {
+    setTestCases(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!imageFile && !questionText) {
       setError("Please provide either a pasted/uploaded screenshot or question text.");
+      return;
+    }
+
+    // Filter test cases that have expected output defined
+    const filledTestCases = testCases.filter(tc => tc.expected.trim() !== "");
+    if (filledTestCases.length < 3) {
+      setError(`Please provide at least 3 test cases. Currently filled: ${filledTestCases.length}`);
       return;
     }
 
@@ -80,26 +108,59 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Authentication missing. Please log in first.");
 
-      // 3. Complete database insertion pipeline matching your updated table architecture
-      const { data, error: insertError } = await supabase
-        .from("questions")
-        .insert([
-          {
+      // 3. Complete database insertion/upsertion pipeline matching your updated table architecture
+      let insertError = null;
+      let insertData = null;
+
+      try {
+        const { data, error } = await supabase
+          .from("questions")
+          .upsert({
             user_id: user.id,
             file_path: filePath,
             filename: filename,
             topic: topic || null,
             screenshot_url: uploadedUrl,
             question_text: questionText || null,
-            answer_text: answerText || null // Writes straight to your new answer column
-          }
-        ])
-        .select()
-        .single();
+            answer_text: answerText || null,
+            test_cases: filledTestCases
+          }, { onConflict: 'file_path' })
+          .select()
+          .single();
+
+        insertData = data;
+        insertError = error;
+      } catch (err) {
+        insertError = err;
+      }
+
+      // Fallback if upsert with onConflict throws a unique index error or is unsupported
+      if (insertError) {
+        console.warn("Upsert failed, trying direct insert fallback:", insertError.message);
+        const { data, error } = await supabase
+          .from("questions")
+          .insert([
+            {
+              user_id: user.id,
+              file_path: filePath,
+              filename: filename,
+              topic: topic || null,
+              screenshot_url: uploadedUrl,
+              question_text: questionText || null,
+              answer_text: answerText || null,
+              test_cases: filledTestCases
+            }
+          ])
+          .select()
+          .single();
+
+        insertData = data;
+        insertError = error;
+      }
 
       if (insertError) throw insertError;
 
-      onSuccess(data);
+      onSuccess(insertData);
     } catch (err) {
       console.error("Failed to add question:", err);
       setError(err.message || "Failed to add question. Please try again.");
@@ -126,6 +187,8 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
         borderRadius: "12px",
         width: "90%",
         maxWidth: "520px",
+        maxHeight: "90vh",
+        overflowY: "auto",
         padding: "24px",
         display: "flex",
         flexDirection: "column",
@@ -218,6 +281,83 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
               rows={4}
               style={{ ...textareaStyle, border: "1px solid rgba(239, 68, 68, 0.25)", color: "#FCA5A5", fontFamily: "'JetBrains Mono', monospace" }}
             />
+          </div>
+
+          {/* Test Cases Editor Section */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "8px", borderTop: "1px solid rgba(255, 255, 255, 0.1)", paddingTop: "12px" }}>
+            <label style={{ color: "#34D399", fontSize: "11px", fontWeight: 600 }}>
+              Test Cases (At least 3-4 recommended)
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+              {testCases.map((tc, index) => (
+                <div key={index} style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  background: "rgba(255, 255, 255, 0.02)",
+                  padding: "10px",
+                  borderRadius: "6px",
+                  border: "1px solid rgba(255, 255, 255, 0.05)"
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ color: "#A3A3A3", fontSize: "10px" }}>Test Case #{index + 1}</span>
+                    {testCases.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeTestCase(index)}
+                        style={{
+                          background: "transparent",
+                          border: "none",
+                          color: "#EF4444",
+                          cursor: "pointer",
+                          fontSize: "10px"
+                        }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <label style={{ color: "#7A7A7A", fontSize: "9px" }}>Input (stdin)</label>
+                      <input
+                        type="text"
+                        value={tc.input}
+                        onChange={(e) => handleTestCaseChange(index, "input", e.target.value)}
+                        placeholder="e.g. 5"
+                        style={inputStyle}
+                      />
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <label style={{ color: "#7A7A7A", fontSize: "9px" }}>Expected Output (stdout)</label>
+                      <input
+                        type="text"
+                        value={tc.expected}
+                        onChange={(e) => handleTestCaseChange(index, "expected", e.target.value)}
+                        placeholder="e.g. 120"
+                        style={inputStyle}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={addTestCase}
+              style={{
+                background: "rgba(255, 255, 255, 0.05)",
+                border: "1px dashed rgba(255, 255, 255, 0.2)",
+                color: "#FFFFFF",
+                padding: "6px",
+                borderRadius: "6px",
+                fontSize: "11px",
+                cursor: "pointer",
+                marginTop: "4px"
+              }}
+            >
+              + Add Test Case
+            </button>
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "8px" }}>

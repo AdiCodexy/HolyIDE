@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "../supabaseClient";
 
 // Helper for relative timestamps (e.g. "3 hours ago")
@@ -50,44 +50,58 @@ function AnimatedSection({ children }) {
 
 export default function ReviewPage() {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
   const [prosText, setProsText] = useState("");
   const [consText, setConsText] = useState("");
   const [commentInputs, setCommentInputs] = useState({}); // { reviewId: "text" }
   const [expandedComments, setExpandedComments] = useState({}); // { reviewId: true/false }
   const [likersModalReview, setLikersModalReview] = useState(null); // Review object for active Likers modal
-  const [isFallbackMode, setIsFallbackMode] = useState(false);
+  const [isFallbackMode, setIsFallbackMode] = useState(!supabase);
 
-  // ── Auth Listener ─────────────────────────────────────────────
-  useEffect(() => {
-    if (!supabase) {
-      setLoading(false);
-      setIsFallbackMode(true);
-      loadLocalStorageReviews();
-      return;
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
+  // 1. LocalStorage Fallback Handlers
+  const loadLocalStorageReviews = useCallback(() => {
+    const localData = localStorage.getItem("holy_ide_reviews");
+    if (localData) {
+      try {
+        setReviews(JSON.parse(localData));
+      } catch {
+        setReviews([]);
       }
-    );
-
-    return () => subscription.unsubscribe();
+    } else {
+      // Seed default reviews for presentation
+      const defaultReviews = [
+        {
+          id: "seed-1",
+          user_name: "Om Pandey",
+          user_avatar: "https://lh3.googleusercontent.com/a/ACg8ocLx-example",
+          pros: "The cloud sync is flawless. Code outputs are instantaneous, and practicing code questions feels extremely fast compared to manual terminal builds.",
+          cons: "Dark theme lacks customization options. Would be great if we could choose between JetBrains Dracula and Github Dark themes.",
+          created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
+          review_likes: [
+            { user_name: "Aditya Karale", user_avatar: "" }
+          ],
+          review_comments: [
+            {
+              id: "comment-seed-1",
+              user_name: "Aditya Karale",
+              content: "Agreed! Dracula theme would be a fantastic addition.",
+              created_at: new Date(Date.now() - 3600000 * 3).toISOString()
+            }
+          ]
+        }
+      ];
+      localStorage.setItem("holy_ide_reviews", JSON.stringify(defaultReviews));
+      setReviews(defaultReviews);
+    }
   }, []);
 
-  // ── Fetch Reviews (Supabase or LocalStorage) ──────────────────
-  useEffect(() => {
-    fetchReviews();
+  const saveLocalStorageReviews = useCallback((updatedReviews) => {
+    localStorage.setItem("holy_ide_reviews", JSON.stringify(updatedReviews));
+    setReviews(updatedReviews);
   }, []);
 
-  const fetchReviews = async () => {
+  // 2. Fetch Reviews from Database
+  const fetchReviews = useCallback(async () => {
     if (!supabase) {
       setIsFallbackMode(true);
       loadLocalStorageReviews();
@@ -118,49 +132,37 @@ export default function ReviewPage() {
       setIsFallbackMode(true);
       loadLocalStorageReviews();
     }
-  };
+  }, [loadLocalStorageReviews]);
 
-  // LocalStorage Fallback Handlers
-  const loadLocalStorageReviews = () => {
-    const localData = localStorage.getItem("holy_ide_reviews");
-    if (localData) {
-      try {
-        setReviews(JSON.parse(localData));
-      } catch (e) {
-        setReviews([]);
-      }
-    } else {
-      // Seed default reviews for presentation
-      const defaultReviews = [
-        {
-          id: "seed-1",
-          user_name: "Om Pandey",
-          user_avatar: "https://lh3.googleusercontent.com/a/ACg8ocLx-example",
-          pros: "The cloud sync is flawless. Code outputs are instantaneous, and practicing code questions feels extremely fast compared to manual terminal builds.",
-          cons: "Dark theme lacks customization options. Would be great if we could choose between JetBrains Dracula and Github Dark themes.",
-          created_at: new Date(Date.now() - 3600000 * 4).toISOString(),
-          review_likes: [
-            { user_name: "Aditya Karale", user_avatar: "" }
-          ],
-          review_comments: [
-            {
-              id: "comment-seed-1",
-              user_name: "Aditya Karale",
-              content: "Agreed! Dracula theme would be a fantastic addition.",
-              created_at: new Date(Date.now() - 3600000 * 3).toISOString()
-            }
-          ]
-        }
-      ];
-      localStorage.setItem("holy_ide_reviews", JSON.stringify(defaultReviews));
-      setReviews(defaultReviews);
+  // ── Auth Listener ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!supabase) {
+      // Defer state updates to prevent synchronous renders inside effects
+      setTimeout(() => {
+        loadLocalStorageReviews();
+      }, 0);
+      return;
     }
-  };
 
-  const saveLocalStorageReviews = (updatedReviews) => {
-    localStorage.setItem("holy_ide_reviews", JSON.stringify(updatedReviews));
-    setReviews(updatedReviews);
-  };
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [loadLocalStorageReviews]);
+
+  // ── Fetch Reviews (Supabase or LocalStorage) ──────────────────
+  useEffect(() => {
+    setTimeout(() => {
+      fetchReviews();
+    }, 0);
+  }, [fetchReviews]);
 
   // ── Auth Action ───────────────────────────────────────────────
   const signInWithGoogle = async () => {
@@ -183,7 +185,7 @@ export default function ReviewPage() {
 
     if (!isFallbackMode) {
       try {
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from("reviews")
           .insert({
             user_id: user.id,
@@ -191,8 +193,7 @@ export default function ReviewPage() {
             user_avatar: reviewerAvatar,
             pros: prosText,
             cons: consText
-          })
-          .select();
+          });
 
         if (error) throw error;
         setProsText("");
