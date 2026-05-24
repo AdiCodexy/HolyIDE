@@ -29,7 +29,7 @@ function timeAgo(dateString) {
   return `${days}d ago`;
 }
 
-export default function ProfilePage({ onClose }) {
+export default function ProfilePage({ onClose, userId = null, userName = null }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState({ name: "Student", studying: "Data Science", aboutMe: "", avatarUrl: null });
 
@@ -43,6 +43,8 @@ export default function ProfilePage({ onClose }) {
   const [subjectProgress, setSubjectProgress] = useState([]);
   const [activityLog, setActivityLog] = useState([]);
 
+  const isReadOnly = !!userId;
+
   useEffect(() => {
     async function loadData() {
       if (!isSupabaseConfigured) {
@@ -50,78 +52,164 @@ export default function ProfilePage({ onClose }) {
         setSubjectProgress([]);
         setActivityLog([]);
         
-        const guestName = localStorage.getItem("profile_name_guest") || "Student";
-        const guestStudying = localStorage.getItem("profile_studying_guest") || "Data Science";
-        const guestAboutMe = localStorage.getItem("profile_aboutme_guest") || "Passionate computer science student learning data structures, algorithms, and web technologies.";
-        
-        setProfile({
-          name: guestName,
-          studying: guestStudying,
-          aboutMe: guestAboutMe,
-          avatarUrl: null
-        });
-        setEditName(guestName);
-        setEditStudying(guestStudying);
-        setEditAboutMe(guestAboutMe);
+        if (isReadOnly) {
+          const mockFriends = {
+            "mock-alice": {
+              name: "Alice Vance",
+              studying: "Computer Science",
+              aboutMe: "Deep learning enthusiast and algorithm lover. Currently working on competitive programming.",
+              solved: 12,
+              total: 18,
+              progress: [
+                { name: "Python", completed: 5, total: 6 },
+                { name: "PDSA", completed: 4, total: 6 },
+                { name: "Java", completed: 3, total: 6 }
+              ],
+              logs: [
+                { action: "Solved", item: "binary_search", subject: "PDSA", time: "2h ago" },
+                { action: "Updated", item: "lists_basics", subject: "Python", time: "1d ago" }
+              ]
+            },
+            "mock-bob": {
+              name: "Bob Smith",
+              studying: "Data Science",
+              aboutMe: "Aspiring data analyst. Enjoys cleaning data and making graphs.",
+              solved: 6,
+              total: 18,
+              progress: [
+                { name: "Python", completed: 4, total: 6 },
+                { name: "PDSA", completed: 1, total: 6 },
+                { name: "Java", completed: 1, total: 6 }
+              ],
+              logs: [
+                { action: "Updated", item: "variables", subject: "Python", time: "5h ago" }
+              ]
+            },
+            "mock-charlie": {
+              name: "Charlie Kovach",
+              studying: "Software Engineering",
+              aboutMe: "Full stack developer. Working on building compilers.",
+              solved: 15,
+              total: 18,
+              progress: [
+                { name: "Python", completed: 6, total: 6 },
+                { name: "PDSA", completed: 5, total: 6 },
+                { name: "Java", completed: 4, total: 6 }
+              ],
+              logs: [
+                { action: "Solved", item: "sorting_algorithms", subject: "PDSA", time: "1h ago" },
+                { action: "Solved", item: "inheritance", subject: "Java", time: "3h ago" }
+              ]
+            }
+          };
+
+          const friend = mockFriends[userId] || {
+            name: userName || "Friend",
+            studying: "Data Science",
+            aboutMe: "Active user on Holy IDE.",
+            solved: 2,
+            total: 18,
+            progress: [],
+            logs: []
+          };
+
+          setProfile({ name: friend.name, studying: friend.studying, aboutMe: friend.aboutMe, avatarUrl: null });
+          setGlobalStats({ solved: friend.solved, total: friend.total });
+          setSubjectProgress(friend.progress);
+          setActivityLog(friend.logs);
+        } else {
+          const guestName = localStorage.getItem("profile_name_guest") || "Student";
+          const guestStudying = localStorage.getItem("profile_studying_guest") || "Data Science";
+          const guestAboutMe = localStorage.getItem("profile_aboutme_guest") || "Passionate computer science student learning data structures, algorithms, and web technologies.";
+          
+          setProfile({
+            name: guestName,
+            studying: guestStudying,
+            aboutMe: guestAboutMe,
+            avatarUrl: null
+          });
+          setEditName(guestName);
+          setEditStudying(guestStudying);
+          setEditAboutMe(guestAboutMe);
+        }
         return;
       }
 
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        setSession(session);
+        let targetUserId = userId;
+        let isCurrentUser = false;
+
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession) {
+          setSession(currentSession);
+          if (!targetUserId) {
+            targetUserId = currentSession.user.id;
+            isCurrentUser = true;
+          } else if (targetUserId === currentSession.user.id) {
+            isCurrentUser = true;
+          }
+        }
+
+        if (!targetUserId) return;
 
         // 1. Load Profile Metadata
-        const googleAvatar = session.user.user_metadata?.avatar_url;
+        let googleAvatar = null;
         let profileData = null;
         let aboutMeVal = "";
+
+        if (isCurrentUser && currentSession) {
+          googleAvatar = currentSession.user.user_metadata?.avatar_url;
+        }
 
         try {
           const { data, error } = await supabase
             .from('profiles')
             .select('name, studying, about_me')
-            .eq('id', session.user.id)
+            .eq('id', targetUserId)
             .single();
 
           if (!error && data) {
             profileData = data;
             aboutMeVal = data.about_me || "";
           } else {
-            // Fallback if column does not exist
+            // Fallback
             const { data: fallbackData } = await supabase
               .from('profiles')
               .select('name, studying')
-              .eq('id', session.user.id)
+              .eq('id', targetUserId)
               .single();
             profileData = fallbackData;
-            aboutMeVal = localStorage.getItem(`about_me_${session.user.id}`) || "";
+            aboutMeVal = localStorage.getItem(`about_me_${targetUserId}`) || "";
           }
         } catch {
           const { data: fallbackData } = await supabase
             .from('profiles')
             .select('name, studying')
-            .eq('id', session.user.id)
+            .eq('id', targetUserId)
             .single();
           profileData = fallbackData;
-          aboutMeVal = localStorage.getItem(`about_me_${session.user.id}`) || "";
+          aboutMeVal = localStorage.getItem(`about_me_${targetUserId}`) || "";
         }
 
-        const currentName = profileData?.name || session.user.user_metadata?.full_name || "Student";
+        const currentName = profileData?.name || (isCurrentUser && currentSession ? (currentSession.user.user_metadata?.full_name || currentSession.user.user_metadata?.name) : null) || userName || "Student";
         const currentStudying = profileData?.studying || "Data Science";
 
         setProfile({ name: currentName, studying: currentStudying, aboutMe: aboutMeVal, avatarUrl: googleAvatar });
-        setEditName(currentName);
-        setEditStudying(currentStudying);
-        setEditAboutMe(aboutMeVal);
+        
+        if (!isReadOnly) {
+          setEditName(currentName);
+          setEditStudying(currentStudying);
+          setEditAboutMe(aboutMeVal);
+        }
 
         // 2. Load Questions (to get the denominator/totals)
         const { data: questionsData } = await supabase.from('questions').select('file_path');
 
-        // 3. Load User Code (to get the numerator/solved and recent activity)
+        // 3. Load User Code
         const { data: userCodeData } = await supabase
           .from('user_code')
           .select('file_path, updated_at, code_content')
-          .eq('user_id', session.user.id)
+          .eq('user_id', targetUserId)
           .order('updated_at', { ascending: false });
 
         // 4. Calculate Stats
@@ -185,7 +273,7 @@ export default function ProfilePage({ onClose }) {
     }
 
     loadData();
-  }, []);
+  }, [userId, userName, isReadOnly]);
 
   const handleSave = async () => {
     setProfile(p => ({ ...p, name: editName, studying: editStudying, aboutMe: editAboutMe }));
@@ -269,7 +357,7 @@ export default function ProfilePage({ onClose }) {
           onMouseEnter={e => { e.currentTarget.style.background = "#FFFFFF"; e.currentTarget.style.color = "#000000"; e.currentTarget.style.borderColor = "#FFFFFF"; }}
           onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#FFFFFF"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)"; }}
         >
-          ← Return to IDE
+          {isReadOnly ? "← Back to Search" : "← Return to IDE"}
         </button>
       </div>
 
@@ -386,27 +474,29 @@ export default function ProfilePage({ onClose }) {
                     </div>
                   )}
                 </div>
-                <button
-                  onClick={() => setEditing(true)}
-                  style={{
-                    background: "transparent",
-                    border: "1px solid rgba(255, 255, 255, 0.15)",
-                    color: "#888888",
-                    borderRadius: "6px",
-                    padding: "8px 16px",
-                    fontSize: "11px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.1em",
-                    cursor: "pointer",
-                    fontFamily: "'JetBrains Mono', monospace",
-                    width: "fit-content",
-                    transition: "all 0.2s"
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.color = "#FFFFFF"; e.currentTarget.style.borderColor = "#FFFFFF"; }}
-                  onMouseLeave={e => { e.currentTarget.style.color = "#888888"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)"; }}
-                >
-                  Edit Profile
-                </button>
+                {!isReadOnly && (
+                  <button
+                    onClick={() => setEditing(true)}
+                    style={{
+                      background: "transparent",
+                      border: "1px solid rgba(255, 255, 255, 0.15)",
+                      color: "#888888",
+                      borderRadius: "6px",
+                      padding: "8px 16px",
+                      fontSize: "11px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.1em",
+                      cursor: "pointer",
+                      fontFamily: "'JetBrains Mono', monospace",
+                      width: "fit-content",
+                      transition: "all 0.2s"
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = "#FFFFFF"; e.currentTarget.style.borderColor = "#FFFFFF"; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "#888888"; e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)"; }}
+                  >
+                    Edit Profile
+                  </button>
+                )}
               </div>
             )}
 
