@@ -4,6 +4,7 @@ import { supabase } from "../supabaseClient";
 import BackgroundCanvas from "./BackgroundCanvas";
 import AboutPage from "./AboutPage";
 import PrivacyPolicyPage from "./PrivacyPolicyPage";
+import ReviewPage from "./ReviewPage";
 
 export default function HomePage({ onOpenIDE, onOpenSubject }) {
   const [user, setUser] = useState(null);
@@ -227,6 +228,27 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
             >
               Privacy
             </button>
+
+            <button
+              onClick={() => document.getElementById('review-section')?.scrollIntoView({ behavior: 'smooth' })}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#666666",
+                fontSize: "11px",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                fontFamily: "'JetBrains Mono', monospace",
+                cursor: "pointer",
+                padding: "4px 0",
+                transition: "color 0.2s ease",
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+              onMouseLeave={e => e.currentTarget.style.color = "#666666"}
+            >
+              Review
+            </button>
           </div>
         </div>
         {/* Right — Auth + Open IDE */}
@@ -432,6 +454,7 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
 
       <AboutPage />
       <PrivacyPolicyPage />
+      <ReviewPage />
 
       {/* ── Footer ─────────────────────────────────────────────────── */}
       <div style={{
@@ -486,6 +509,25 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
             onMouseLeave={(e) => e.currentTarget.style.color = "#666666"}
           >
             Privacy
+          </button>
+          <button 
+            onClick={() => document.getElementById('review-section')?.scrollIntoView({ behavior: 'smooth' })}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#666666",
+              cursor: "pointer",
+              fontSize: "10px",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              fontFamily: "'JetBrains Mono', monospace",
+              padding: 0,
+              textDecoration: "underline",
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.color = "#FFFFFF"}
+            onMouseLeave={(e) => e.currentTarget.style.color = "#666666"}
+          >
+            Review
           </button>
         </div>
       </div>
