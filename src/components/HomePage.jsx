@@ -315,9 +315,9 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
           </div>
         </div>
         {/* Right — Auth + Open IDE */}
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "16px", position: "relative" }}>
           <button
-            onClick={() => setShowSearch(true)}
+            onClick={() => setShowSearch(prev => !prev)}
             style={{
               ...navBtnStyle,
               display: "flex",
@@ -336,6 +336,165 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
             </svg>
             Search
           </button>
+          
+          {showSearch && (
+            <>
+              {/* Invisible Clickable Overlay to close search on clicking outside */}
+              <div 
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 999,
+                  background: "transparent",
+                  cursor: "default"
+                }}
+                onClick={() => setShowSearch(false)}
+              />
+              
+              {/* Dropdown Box */}
+              <div style={{
+                position: "absolute",
+                top: "calc(100% + 12px)",
+                right: 0,
+                width: "450px",
+                background: "#0D0D0D",
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                borderRadius: "8px",
+                padding: "20px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px",
+                boxShadow: "0 15px 40px rgba(0, 0, 0, 0.9)",
+                boxSizing: "border-box",
+                animation: "slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+                zIndex: 1000,
+              }}
+              onClick={e => e.stopPropagation()}
+              >
+                <style>{`
+                  @keyframes slideDown {
+                    from {
+                      opacity: 0;
+                      transform: translateY(-10px);
+                    }
+                    to {
+                      opacity: 1;
+                      transform: translateY(0);
+                    }
+                  }
+                `}</style>
+                
+                {/* Header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <span style={{ fontSize: "11px", fontWeight: 600, letterSpacing: "0.1em", color: "#888888" }}>SEARCH USERS</span>
+                  <button 
+                    onClick={() => setShowSearch(false)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      color: "#666666",
+                      cursor: "pointer",
+                      fontSize: "10px",
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
+                    onMouseLeave={e => e.currentTarget.style.color = "#666666"}
+                  >
+                    [ ESC ]
+                  </button>
+                </div>
+
+                {/* Input Wrapper */}
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    placeholder="Search friend's name..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    autoFocus
+                    style={{
+                      width: "100%",
+                      background: "rgba(255, 255, 255, 0.02)",
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      borderRadius: "4px",
+                      padding: "10px 12px 10px 36px",
+                      color: "#FFFFFF",
+                      fontSize: "13px",
+                      outline: "none",
+                      fontFamily: "inherit",
+                      boxSizing: "border-box",
+                      transition: "border-color 0.2s"
+                    }}
+                    onFocus={e => e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)"}
+                    onBlur={e => e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"}
+                  />
+                  <svg 
+                    width="14" 
+                    height="14" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="rgba(255, 255, 255, 0.3)" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)" }}
+                  >
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                </div>
+
+                {/* Search Results */}
+                <div style={{ 
+                  maxHeight: "260px", 
+                  overflowY: "auto", 
+                  display: "flex", 
+                  flexDirection: "column", 
+                  gap: "6px" 
+                }}>
+                  {searching ? (
+                    <div style={{ color: "#666666", fontSize: "11px", padding: "8px 0" }}>Searching users...</div>
+                  ) : results.length === 0 ? (
+                    <div style={{ color: "#666666", fontSize: "11px", padding: "8px 0" }}>
+                      {searchQuery ? "No matching friends found." : "Type a name to search..."}
+                    </div>
+                  ) : (
+                    results.map(friend => (
+                      <div
+                        key={friend.id}
+                        onClick={() => handleSelectFriend(friend)}
+                        style={{
+                          background: "rgba(255, 255, 255, 0.01)",
+                          border: "1px solid rgba(255, 255, 255, 0.03)",
+                          borderRadius: "6px",
+                          padding: "12px 14px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          cursor: "pointer",
+                          transition: "all 0.2s"
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)";
+                          e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)";
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = "rgba(255, 255, 255, 0.01)";
+                          e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.03)";
+                        }}
+                      >
+                        <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                          <span style={{ color: "#FFFFFF", fontSize: "12px", fontWeight: 600 }}>{friend.name}</span>
+                          <span style={{ color: "#666666", fontSize: "10px" }}>{friend.studying}</span>
+                        </div>
+                        <span style={{ color: "#888888", fontSize: "9px", textTransform: "uppercase" }}>View Profile →</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </>
+          )}
           {!loading && (
             user ? (
         /* ── Logged in ─────────── */
@@ -614,148 +773,6 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
           </button>
         </div>
       </div>
-
-      {/* ── Search Dialog Overlay ────────────────────────────────────── */}
-      {showSearch && (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          backgroundColor: "rgba(0, 0, 0, 0.85)",
-          backdropFilter: "blur(12px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 1000,
-          fontFamily: "'JetBrains Mono', monospace",
-        }}
-        onClick={() => setShowSearch(false)}
-        >
-          <div style={{
-            width: "100%",
-            maxWidth: "600px",
-            background: "#0D0D0D",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            borderRadius: "12px",
-            padding: "32px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "24px",
-            boxShadow: "0 20px 50px rgba(0, 0, 0, 0.5)",
-            boxSizing: "border-box",
-            margin: "0 16px"
-          }}
-          onClick={e => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: "14px", fontWeight: 600, letterSpacing: "0.05em", color: "#FFFFFF" }}>SEARCH USERS</span>
-              <button 
-                onClick={() => setShowSearch(false)}
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  color: "#666666",
-                  cursor: "pointer",
-                  fontSize: "12px",
-                }}
-                onMouseEnter={e => e.currentTarget.style.color = "#FFFFFF"}
-                onMouseLeave={e => e.currentTarget.style.color = "#666666"}
-              >
-                [ CLOSE ]
-              </button>
-            </div>
-
-            {/* Input Wrapper */}
-            <div style={{ position: "relative" }}>
-              <input
-                type="text"
-                placeholder="Search friend's name..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                autoFocus
-                style={{
-                  width: "100%",
-                  background: "rgba(255, 255, 255, 0.02)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  borderRadius: "6px",
-                  padding: "14px 16px 14px 44px",
-                  color: "#FFFFFF",
-                  fontSize: "14px",
-                  outline: "none",
-                  fontFamily: "inherit",
-                  boxSizing: "border-box",
-                  transition: "border-color 0.2s"
-                }}
-                onFocus={e => e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)"}
-                onBlur={e => e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.1)"}
-              />
-              <svg 
-                width="18" 
-                height="18" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="rgba(255, 255, 255, 0.3)" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-                style={{ position: "absolute", left: "16px", top: "50%", transform: "translateY(-50%)" }}
-              >
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-            </div>
-
-            {/* Search Results */}
-            <div style={{ 
-              maxHeight: "300px", 
-              overflowY: "auto", 
-              display: "flex", 
-              flexDirection: "column", 
-              gap: "8px" 
-            }}>
-              {searching ? (
-                <div style={{ color: "#666666", fontSize: "12px", padding: "12px 0" }}>Searching users...</div>
-              ) : results.length === 0 ? (
-                <div style={{ color: "#666666", fontSize: "12px", padding: "12px 0" }}>
-                  {searchQuery ? "No matching friends found." : "Type a name to search..."}
-                </div>
-              ) : (
-                results.map(friend => (
-                  <div
-                    key={friend.id}
-                    onClick={() => handleSelectFriend(friend)}
-                    style={{
-                      background: "rgba(255, 255, 255, 0.01)",
-                      border: "1px solid rgba(255, 255, 255, 0.03)",
-                      borderRadius: "8px",
-                      padding: "16px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      cursor: "pointer",
-                      transition: "all 0.2s"
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.04)";
-                      e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.15)";
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.background = "rgba(255, 255, 255, 0.01)";
-                      e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.03)";
-                    }}
-                  >
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <span style={{ color: "#FFFFFF", fontSize: "13px", fontWeight: 600 }}>{friend.name}</span>
-                      <span style={{ color: "#666666", fontSize: "11px" }}>{friend.studying}</span>
-                    </div>
-                    <span style={{ color: "#888888", fontSize: "10px", textTransform: "uppercase" }}>View Profile →</span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ── Friend Profile Overlay ───────────────────────────────────── */}
       {selectedFriend && (
