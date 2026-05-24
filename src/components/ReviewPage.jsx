@@ -51,8 +51,7 @@ function AnimatedSection({ children }) {
 export default function ReviewPage() {
   const [user, setUser] = useState(null);
   const [reviews, setReviews] = useState([]);
-  const [prosText, setProsText] = useState("");
-  const [consText, setConsText] = useState("");
+  const [reviewText, setReviewText] = useState("");
   const [commentInputs, setCommentInputs] = useState({}); // { reviewId: "text" }
   const [expandedComments, setExpandedComments] = useState({}); // { reviewId: true/false }
   const [likersModalReview, setLikersModalReview] = useState(null); // Review object for active Likers modal
@@ -178,7 +177,7 @@ export default function ReviewPage() {
   // ── Actions: Post Review ──────────────────────────────────────
   const handlePostReview = async (e) => {
     e.preventDefault();
-    if (!prosText.trim() || !consText.trim()) return;
+    if (!reviewText.trim()) return;
 
     const reviewerName = user?.user_metadata?.full_name || user?.user_metadata?.name || "Anonymous Student";
     const reviewerAvatar = user?.user_metadata?.avatar_url || user?.user_metadata?.picture || "";
@@ -191,13 +190,12 @@ export default function ReviewPage() {
             user_id: user.id,
             user_name: reviewerName,
             user_avatar: reviewerAvatar,
-            pros: prosText,
-            cons: consText
+            pros: reviewText,
+            cons: ""
           });
 
         if (error) throw error;
-        setProsText("");
-        setConsText("");
+        setReviewText("");
         fetchReviews();
       } catch (err) {
         alert("Failed to submit review: " + err.message);
@@ -208,16 +206,15 @@ export default function ReviewPage() {
         id: "local-" + Date.now(),
         user_name: reviewerName,
         user_avatar: reviewerAvatar,
-        pros: prosText,
-        cons: consText,
+        pros: reviewText,
+        cons: "",
         created_at: new Date().toISOString(),
         review_likes: [],
         review_comments: []
       };
       const updated = [newReview, ...reviews];
       saveLocalStorageReviews(updated);
-      setProsText("");
-      setConsText("");
+      setReviewText("");
     }
   };
 
@@ -449,56 +446,28 @@ export default function ReviewPage() {
                 flexDirection: "column",
                 gap: "24px"
               }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" }}>
-                  {/* Pros Textbox */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <label style={{ fontSize: "11px", fontFamily: "'JetBrains Mono', monospace", color: "#888888" }}>PROS</label>
-                    <textarea
-                      placeholder="What do you like about the IDE? (e.g. speed, cloud sync...)"
-                      value={prosText}
-                      onChange={e => setProsText(e.target.value)}
-                      required
-                      style={{
-                        background: "#080808",
-                        border: "1px solid #222222",
-                        color: "#FFFFFF",
-                        padding: "16px",
-                        fontSize: "14px",
-                        fontFamily: "'Inter', sans-serif",
-                        height: "120px",
-                        resize: "none",
-                        outline: "none",
-                        transition: "border-color 0.2s ease"
-                      }}
-                      onFocus={e => e.target.style.borderColor = "#ffffff"}
-                      onBlur={e => e.target.style.borderColor = "#222222"}
-                    />
-                  </div>
-
-                  {/* Cons Textbox */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <label style={{ fontSize: "11px", fontFamily: "'JetBrains Mono', monospace", color: "#888888" }}>CONS</label>
-                    <textarea
-                      placeholder="What should be improved? (e.g. missing shortcuts, theme customization...)"
-                      value={consText}
-                      onChange={e => setConsText(e.target.value)}
-                      required
-                      style={{
-                        background: "#080808",
-                        border: "1px solid #222222",
-                        color: "#FFFFFF",
-                        padding: "16px",
-                        fontSize: "14px",
-                        fontFamily: "'Inter', sans-serif",
-                        height: "120px",
-                        resize: "none",
-                        outline: "none",
-                        transition: "border-color 0.2s ease"
-                      }}
-                      onFocus={e => e.target.style.borderColor = "#ffffff"}
-                      onBlur={e => e.target.style.borderColor = "#222222"}
-                    />
-                  </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                  <label style={{ fontSize: "11px", fontFamily: "'JetBrains Mono', monospace", color: "#888888" }}>YOUR REVIEW</label>
+                  <textarea
+                    placeholder="What do you think of the IDE? Share your feedback here..."
+                    value={reviewText}
+                    onChange={e => setReviewText(e.target.value)}
+                    required
+                    style={{
+                      background: "#080808",
+                      border: "1px solid #222222",
+                      color: "#FFFFFF",
+                      padding: "16px",
+                      fontSize: "14px",
+                      fontFamily: "'Inter', sans-serif",
+                      height: "120px",
+                      resize: "none",
+                      outline: "none",
+                      transition: "border-color 0.2s ease"
+                    }}
+                    onFocus={e => e.target.style.borderColor = "#ffffff"}
+                    onBlur={e => e.target.style.borderColor = "#222222"}
+                  />
                 </div>
 
                 <button
@@ -631,44 +600,48 @@ export default function ReviewPage() {
                       </div>
                     </div>
 
-                    {/* Review Body (Pros & Cons) */}
+                    {/* Review Body (B&W Card layout) */}
                     <div style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
+                      gridTemplateColumns: review.cons ? "1fr 1fr" : "1fr",
                       gap: "24px",
                       marginBottom: "32px"
                     }}>
-                      {/* Pros Display */}
+                      {/* Main/Pros Review Text */}
                       <div style={{
-                        background: "#080a08",
-                        borderLeft: "2px solid #22c55e",
+                        background: "#080808",
+                        borderLeft: "2px solid #FFFFFF",
                         padding: "16px",
                       }}>
-                        <h4 style={{
-                          color: "#22c55e",
-                          fontSize: "11px",
-                          fontFamily: "'JetBrains Mono', monospace",
-                          marginBottom: "8px",
-                          textTransform: "uppercase"
-                        }}>PROS</h4>
-                        <p style={{ fontSize: "14px", lineHeight: "1.6", color: "#cbd5e1" }}>{review.pros}</p>
+                        {review.cons && (
+                          <h4 style={{
+                            color: "#888888",
+                            fontSize: "11px",
+                            fontFamily: "'JetBrains Mono', monospace",
+                            marginBottom: "8px",
+                            textTransform: "uppercase"
+                          }}>PROS</h4>
+                        )}
+                        <p style={{ fontSize: "14px", lineHeight: "1.6", color: "#cbd5e1", margin: 0 }}>{review.pros}</p>
                       </div>
 
-                      {/* Cons Display */}
-                      <div style={{
-                        background: "#0a0808",
-                        borderLeft: "2px solid #ef4444",
-                        padding: "16px",
-                      }}>
-                        <h4 style={{
-                          color: "#ef4444",
-                          fontSize: "11px",
-                          fontFamily: "'JetBrains Mono', monospace",
-                          marginBottom: "8px",
-                          textTransform: "uppercase"
-                        }}>CONS</h4>
-                        <p style={{ fontSize: "14px", lineHeight: "1.6", color: "#cbd5e1" }}>{review.cons}</p>
-                      </div>
+                      {/* Optional Cons Review Text */}
+                      {review.cons && (
+                        <div style={{
+                          background: "#080808",
+                          borderLeft: "2px solid #888888",
+                          padding: "16px",
+                        }}>
+                          <h4 style={{
+                            color: "#888888",
+                            fontSize: "11px",
+                            fontFamily: "'JetBrains Mono', monospace",
+                            marginBottom: "8px",
+                            textTransform: "uppercase"
+                          }}>CONS</h4>
+                          <p style={{ fontSize: "14px", lineHeight: "1.6", color: "#cbd5e1", margin: 0 }}>{review.cons}</p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action Bar (Likes and Comments) */}
