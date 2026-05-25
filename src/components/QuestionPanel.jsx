@@ -128,7 +128,7 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
             <div style={{ flex: 1 }} />
           ) : question ? (
             <>
-              {question.screenshot_url && (
+              {question.screenshot_url && question.screenshot_url !== "placeholder" && (
                 <div style={{ borderRadius: "8px", overflow: "hidden", border: "1px solid rgba(255, 255, 255, 0.1)", background: "rgba(255, 255, 255, 0.02)" }}>
                   <img
                     src={question.screenshot_url}
@@ -203,7 +203,7 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
                 </div>
               )}
 
-              {!question.screenshot_url && !question.question_text && (
+              {(!question.screenshot_url || question.screenshot_url === "placeholder") && !question.question_text && (
                 <div style={{ color: "#7A7A7A", fontSize: "12px", textAlign: "center", marginTop: "20px" }}>
                   No details provided for this question.
                 </div>

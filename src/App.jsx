@@ -85,7 +85,11 @@ export default function App() {
         user_id: user.id,
         file_path: filePath,
         filename: filename,
-        topic: subjectName
+        topic: subjectName,
+        screenshot_url: "placeholder",
+        question_text: "",
+        answer_text: "",
+        test_cases: []
       }]);
 
       if (error) throw error;
