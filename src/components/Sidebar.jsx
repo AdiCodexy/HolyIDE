@@ -2,49 +2,235 @@ import { useState, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../supabaseClient";
 import { SUBJECTS } from "./snippets";
 
-function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode }) {
+function AddQuestionInline({ subjectName, onAddQuestion, depth }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [questionName, setQuestionName] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const getExtensionForSubject = (subject) => {
+    switch (subject) {
+      case "Python":
+      case "PDSA":
+        return ".py";
+      case "Java":
+        return ".java";
+      case "DBMS":
+        return ".sql";
+      default:
+        return ".py";
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (!questionName.trim()) return;
+
+    setIsSaving(true);
+    try {
+      const ext = getExtensionForSubject(subjectName);
+      let cleanName = questionName.trim();
+      if (!cleanName.toLowerCase().endsWith(ext)) {
+        cleanName += ext;
+      }
+      
+      await onAddQuestion(subjectName, cleanName);
+      setQuestionName("");
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Error adding question:", err);
+      alert("Failed to add question: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isEditing) {
+    return (
+      <button
+        onClick={() => setIsEditing(true)}
+        style={{
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          padding: `6px 14px 6px ${14 + depth * 12}px`,
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          color: "#444444",
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: "11px",
+          transition: "color 0.2s ease",
+          textAlign: "left",
+        }}
+        onMouseEnter={e => e.currentTarget.style.color = "#34D399"}
+        onMouseLeave={e => e.currentTarget.style.color = "#444444"}
+      >
+        <span style={{
+          fontSize: "10px",
+          fontWeight: 600,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em"
+        }}>+ New Question</span>
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      style={{
+        padding: `6px 14px 6px ${14 + depth * 12}px`,
+        display: "flex",
+        flexDirection: "column",
+        gap: "6px",
+      }}
+    >
+      <input
+        type="text"
+        value={questionName}
+        onChange={e => setQuestionName(e.target.value)}
+        placeholder="Question name..."
+        autoFocus
+        disabled={isSaving}
+        style={{
+          background: "#0E0E0E",
+          border: "1px solid #333333",
+          borderRadius: "0px",
+          color: "#FFFFFF",
+          fontSize: "11px",
+          fontFamily: "'JetBrains Mono', monospace",
+          padding: "4px 8px",
+          outline: "none",
+          width: "80%",
+        }}
+      />
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button
+          type="submit"
+          disabled={isSaving || !questionName.trim()}
+          style={{
+            background: "#FFFFFF",
+            border: "none",
+            borderRadius: "0px",
+            color: "#000000",
+            fontSize: "10px",
+            fontWeight: 600,
+            cursor: "pointer",
+            padding: "2px 8px",
+            fontFamily: "'JetBrains Mono', monospace",
+          }}
+        >
+          {isSaving ? "Saving..." : "Add"}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setIsEditing(false);
+            setQuestionName("");
+          }}
+          disabled={isSaving}
+          style={{
+            background: "transparent",
+            border: "1px solid #333333",
+            borderRadius: "0px",
+            color: "#888888",
+            fontSize: "10px",
+            cursor: "pointer",
+            padding: "2px 8px",
+            fontFamily: "'JetBrains Mono', monospace",
+          }}
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode, isAdmin, onAddQuestion, onDeleteQuestion }) {
   const isFile = node.type === 'file';
   const isExpanded = expanded[node.path];
   const isActive = activeId === (node.id || node.path);
 
   if (isFile) {
     return (
-      <button
-        onClick={() => onSelect(node.id || node.path)}
+      <div
         style={{
           width: "100%",
-          background: "transparent",
-          border: "none",
-          cursor: "pointer",
-          padding: `8px 14px 8px ${14 + depth * 12}px`,
           display: "flex",
           alignItems: "center",
-          gap: "8px",
-          transition: "all 0.2s ease",
-          textAlign: "left",
+          justifyContent: "space-between",
           borderLeft: isActive ? "2px solid #FFFFFF" : "2px solid transparent",
-          color: isActive ? "#FFFFFF" : "#666666",
-        }}
-        onMouseEnter={e => {
-          if (!isActive) e.currentTarget.style.color = "#FFFFFF";
-        }}
-        onMouseLeave={e => {
-          if (!isActive) e.currentTarget.style.color = "#666666";
+          background: "transparent",
+          paddingRight: "8px",
         }}
       >
-        <span style={{
-          color: "inherit",
-          fontSize: "11px",
-          fontWeight: isActive ? 500 : 400,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          maxWidth: "100%",
-          transition: "color 0.2s ease"
-        }}>
-          {node.name}
-        </span>
-      </button>
+        <button
+          onClick={() => onSelect(node.id || node.path)}
+          style={{
+            flex: 1,
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            padding: `8px 8px 8px ${14 + depth * 12}px`,
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            transition: "all 0.2s ease",
+            textAlign: "left",
+            color: isActive ? "#FFFFFF" : "#666666",
+            overflow: "hidden",
+            minWidth: 0,
+          }}
+          onMouseEnter={e => {
+            if (!isActive) e.currentTarget.style.color = "#FFFFFF";
+          }}
+          onMouseLeave={e => {
+            if (!isActive) e.currentTarget.style.color = "#666666";
+          }}
+        >
+          <span style={{
+            color: "inherit",
+            fontSize: "11px",
+            fontWeight: isActive ? 500 : 400,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            maxWidth: "100%",
+            transition: "color 0.2s ease"
+          }}>
+            {node.name}
+          </span>
+        </button>
+        {isAdmin && node.isCustom && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (confirm(`Are you sure you want to delete the question "${node.name}"?`)) {
+                onDeleteQuestion(node.path);
+              }
+            }}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              color: "#555555",
+              fontSize: "12px",
+              padding: "4px 6px",
+              transition: "color 0.2s ease",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = "#EF4444"}
+            onMouseLeave={e => e.currentTarget.style.color = "#555555"}
+            title="Delete Question"
+          >
+            🗑
+          </button>
+        )}
+      </div>
     );
   }
 
@@ -97,19 +283,50 @@ function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode })
               onSelect={onSelect}
               expanded={expanded}
               toggleNode={toggleNode}
+              isAdmin={isAdmin}
+              onAddQuestion={onAddQuestion}
+              onDeleteQuestion={onDeleteQuestion}
             />
           ))}
+          {depth === 0 && isAdmin && (
+            <AddQuestionInline
+              subjectName={node.name}
+              onAddQuestion={onAddQuestion}
+              depth={depth + 1}
+            />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile, onGoHome, subjectFilter }) {
+export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile, onGoHome, subjectFilter, refreshTrigger, onAddQuestion, onDeleteQuestion }) {
   const [collapsed, setCollapsed] = useState(false);
   const [expanded, setExpanded] = useState({});
   const [treeData, setTreeData] = useState([]);
   const [userProfile, setUserProfile] = useState({ name: "S", avatarUrl: null });
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  const ADMIN_EMAIL = "adityakarale7@gmail.com";
+
+  // Check admin role
+  useEffect(() => {
+    async function checkAdminPrivileges() {
+      if (!isSupabaseConfigured) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user && user.email === ADMIN_EMAIL) {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (err) {
+        console.error("Error checking admin privileges:", err);
+      }
+    }
+    checkAdminPrivileges();
+  }, []);
 
   // Fetch Tree Data & User Profile Avatar
   useEffect(() => {
@@ -126,7 +343,7 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
       }
       const root = [];
 
-      const addPath = (fullPath, fileId) => {
+      const addPath = (fullPath, fileId, isCustom = false) => {
         const parts = fullPath.split('/');
         let currentList = root;
 
@@ -136,7 +353,7 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
           let existing = currentList.find(n => n.name === part);
 
           if (isFile) {
-            if (!existing) currentList.push({ name: part, type: 'file', path: fullPath, id: fileId });
+            if (!existing) currentList.push({ name: part, type: 'file', path: fullPath, id: fileId, isCustom });
           } else {
             if (!existing) {
               existing = { name: part, type: 'directory', path: parts.slice(0, i + 1).join('/'), children: [] };
@@ -150,7 +367,7 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
       // Restore the beautiful hardcoded folder structure for default questions
       SUBJECTS.forEach(sub => {
         sub.questions.forEach(q => {
-          addPath(`${sub.name}/2024/Term 1/${q.label}`, q.id);
+          addPath(`${sub.name}/2024/Term 1/${q.label}`, q.id, false);
         });
       });
 
@@ -158,7 +375,7 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
       if (qData) {
         qData.forEach(q => {
           if (q.file_path) {
-            addPath(q.file_path, q.file_path);
+            addPath(q.file_path, q.file_path, true);
           }
         });
       }
@@ -196,7 +413,7 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
       }
     }
     loadData();
-  }, []);
+  }, [refreshTrigger]);
 
   const toggleNode = (path) => setExpanded(prev => ({ ...prev, [path]: !prev[path] }));
 
@@ -326,6 +543,9 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
               onSelect={onSelect}
               expanded={expanded}
               toggleNode={toggleNode}
+              isAdmin={isAdmin}
+              onAddQuestion={onAddQuestion}
+              onDeleteQuestion={onDeleteQuestion}
             />
           )
         ))}

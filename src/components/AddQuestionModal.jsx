@@ -184,7 +184,7 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
       <div style={{
         background: "#0E0E0E",
         border: "1px solid rgba(255, 255, 255, 0.1)",
-        borderRadius: "12px",
+        borderRadius: "0px",
         width: "90%",
         maxWidth: "520px",
         maxHeight: "90vh",
@@ -210,7 +210,7 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
         </div>
 
         {error && (
-          <div style={{ color: "#F87171", fontSize: "12px", background: "rgba(248, 113, 113, 0.1)", padding: "8px", borderRadius: "6px" }}>
+          <div style={{ color: "#F87171", fontSize: "12px", background: "rgba(248, 113, 113, 0.1)", padding: "8px", borderRadius: "0px" }}>
             {error}
           </div>
         )}
@@ -232,7 +232,7 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
             <label style={{ color: "#D4D4D4", fontSize: "11px" }}>Problem Screenshot</label>
             <div style={{
               border: "1px dashed rgba(255, 255, 255, 0.15)",
-              borderRadius: "6px",
+              borderRadius: "0px",
               padding: "16px",
               textAlign: "center",
               background: "rgba(255, 255, 255, 0.01)",
@@ -254,7 +254,7 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
                 <img
                   src={imagePreview}
                   alt="Captured Preview"
-                  style={{ maxWidth: "100%", maxHeight: "140px", borderRadius: "4px", marginTop: "8px", border: "1px solid rgba(255, 255, 255, 0.1)" }}
+                  style={{ maxWidth: "100%", maxHeight: "140px", borderRadius: "0px", marginTop: "8px", border: "1px solid rgba(255, 255, 255, 0.1)" }}
                 />
               )}
             </div>
@@ -296,7 +296,7 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
                   gap: "6px",
                   background: "rgba(255, 255, 255, 0.02)",
                   padding: "10px",
-                  borderRadius: "6px",
+                  borderRadius: "0px",
                   border: "1px solid rgba(255, 255, 255, 0.05)"
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -350,7 +350,7 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
                 border: "1px dashed rgba(255, 255, 255, 0.2)",
                 color: "#FFFFFF",
                 padding: "6px",
-                borderRadius: "6px",
+                borderRadius: "0px",
                 fontSize: "11px",
                 cursor: "pointer",
                 marginTop: "4px"
@@ -384,7 +384,7 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
 }
 
 // Design system object consistency configurations
-const inputStyle = { background: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)", padding: "8px 12px", borderRadius: "6px", color: "#FFFFFF", fontSize: "12px", fontFamily: "inherit", outline: "none" };
-const textareaStyle = { background: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)", padding: "8px 12px", borderRadius: "6px", color: "#FFFFFF", fontSize: "12px", fontFamily: "inherit", resize: "vertical", outline: "none" };
-const btnCancelStyle = { background: "transparent", border: "1px solid rgba(255, 255, 255, 0.2)", color: "#D4D4D4", padding: "8px 16px", borderRadius: "6px", fontSize: "12px", fontWeight: 600 };
-const btnSubmitStyle = { background: "#34D399", border: "none", color: "#0A0A0A", padding: "8px 16px", borderRadius: "6px", fontSize: "12px", fontWeight: 600 };
+const inputStyle = { background: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)", padding: "8px 12px", borderRadius: "0px", color: "#FFFFFF", fontSize: "12px", fontFamily: "inherit", outline: "none" };
+const textareaStyle = { background: "rgba(255, 255, 255, 0.05)", border: "1px solid rgba(255, 255, 255, 0.1)", padding: "8px 12px", borderRadius: "0px", color: "#FFFFFF", fontSize: "12px", fontFamily: "inherit", resize: "vertical", outline: "none" };
+const btnCancelStyle = { background: "transparent", border: "1px solid rgba(255, 255, 255, 0.2)", color: "#D4D4D4", padding: "8px 16px", borderRadius: "0px", fontSize: "12px", fontWeight: 600 };
+const btnSubmitStyle = { background: "#34D399", border: "none", color: "#0A0A0A", padding: "8px 16px", borderRadius: "0px", fontSize: "12px", fontWeight: 600 };

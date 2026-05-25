@@ -70,6 +70,76 @@ export default function App() {
   const [loadingQuestion, setLoadingQuestion] = useState(false);
 
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+
+  const handleAddQuestion = useCallback(async (subjectName, cleanName) => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const filePath = `${subjectName}/2024/Term 1/${cleanName}`;
+      const filename = cleanName;
+
+      const { error } = await supabase.from('questions').insert([{
+        user_id: user.id,
+        file_path: filePath,
+        filename: filename,
+        topic: subjectName
+      }]);
+
+      if (error) throw error;
+
+      // Add to open tabs and select
+      setOpenTabs(prev => prev.includes(filePath) ? prev : [...prev, filePath]);
+      setActivePaperId(filePath);
+
+      // Trigger sidebar reload
+      setSidebarRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error("Failed to add question:", err);
+      alert("Failed to add question: " + err.message);
+    }
+  }, []);
+
+  const handleDeleteQuestion = useCallback(async (filePath) => {
+    if (!isSupabaseConfigured) return;
+    try {
+      const { error } = await supabase.from('questions').delete().eq('file_path', filePath);
+      if (error) throw error;
+
+      // Invalidate cache
+      if (window.__questionCache) {
+        delete window.__questionCache[filePath];
+      }
+
+      // Close tab if open
+      setOpenTabs(prev => {
+        const next = prev.filter(t => t !== filePath);
+        if (next.length === 0) {
+          setActivePaperId("py-1");
+          return ["py-1"];
+        }
+        if (filePath === activePaperId) {
+          const idx = prev.indexOf(filePath);
+          const newActive = next[Math.min(idx, next.length - 1)];
+          setActivePaperId(newActive);
+        }
+        return next;
+      });
+
+      // Clear current active question if it is the deleted one
+      if (activePaperId === filePath) {
+        setActiveQuestion(null);
+      }
+
+      // Trigger sidebar reload
+      setSidebarRefreshTrigger(prev => prev + 1);
+    } catch (err) {
+      console.error("Failed to delete question:", err);
+      alert("Failed to delete question: " + err.message);
+    }
+  }, [activePaperId]);
 
   // ── Fetch Question Details centrally ─────────────────────────────
   useEffect(() => {
@@ -288,6 +358,9 @@ export default function App() {
           onOpenProfile={() => handleTransition(() => setShowProfile(true))}
           onGoHome={() => handleTransition(() => { setCurrentView("home"); setSubjectFilter(null); })}
           subjectFilter={subjectFilter}
+          refreshTrigger={sidebarRefreshTrigger}
+          onAddQuestion={handleAddQuestion}
+          onDeleteQuestion={handleDeleteQuestion}
         />
 
         {/* ── Vertical resize handle ─────────────────────────── */}
@@ -316,6 +389,7 @@ export default function App() {
               question={activeQuestion}
               loading={loadingQuestion}
               setQuestion={setActiveQuestion}
+              onDeleteQuestion={handleDeleteQuestion}
             />
 
             {/* ── Vertical resize handle for Question panel ── */}

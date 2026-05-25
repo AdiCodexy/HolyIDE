@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../supabaseClient";
 import AddQuestionModal from "./AddQuestionModal";
+import { SNIPPETS } from "./snippets";
 
-export default function QuestionPanel({ activePaperId, width, question, loading, setQuestion }) {
+export default function QuestionPanel({ activePaperId, width, question, loading, setQuestion, onDeleteQuestion }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSolution, setShowSolution] = useState(false); // Collapsible status toggle state for solutions
   const [isAdmin, setIsAdmin] = useState(false);
+  const isCustom = !SNIPPETS[activePaperId];
 
   // Define your exact admin account authorization constraint string
   const ADMIN_EMAIL = "adityakarale7@gmail.com";
@@ -206,9 +208,45 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
                   No details provided for this question.
                 </div>
               )}
+
+              {/* Admin delete button */}
+              {isAdmin && isCustom && (
+                <div style={{ marginTop: "24px", borderTop: "1px solid rgba(255, 255, 255, 0.06)", paddingTop: "16px" }}>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to delete this question? This will remove the question and all user submissions for it.`)) {
+                        onDeleteQuestion(activePaperId);
+                      }
+                    }}
+                    style={{
+                      width: "100%",
+                      background: "rgba(239, 68, 68, 0.1)",
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
+                      color: "#EF4444",
+                      borderRadius: "0px",
+                      padding: "8px 12px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "'JetBrains Mono', monospace",
+                      transition: "all 0.2s"
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = "#EF4444";
+                      e.currentTarget.style.color = "#000000";
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = "rgba(239, 68, 68, 0.1)";
+                      e.currentTarget.style.color = "#EF4444";
+                    }}
+                  >
+                    Delete Question
+                  </button>
+                </div>
+              )}
             </>
           ) : (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "40px", gap: "16px" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "40px", gap: "16px", width: "100%" }}>
               <div style={{ color: "#7A7A7A", fontSize: "12px", textAlign: "center" }}>
                 {isSupabaseConfigured
                   ? "No question found in database for this file."
@@ -217,21 +255,48 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
 
               {/* Only displays addition buttons if authorized admin email matching verification succeeds */}
               {isSupabaseConfigured && isAdmin && (
-                <button
-                  onClick={() => setShowAddModal(true)}
-                  style={{
-                    background: "rgba(52, 211, 153, 0.1)",
-                    border: "1px solid rgba(52, 211, 153, 0.3)",
-                    color: "#34D399",
-                    borderRadius: "6px",
-                    padding: "6px 12px",
-                    fontSize: "11px",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  + Add Question
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%", alignItems: "center" }}>
+                  <button
+                    onClick={() => setShowAddModal(true)}
+                    style={{
+                      background: "rgba(52, 211, 153, 0.1)",
+                      border: "1px solid rgba(52, 211, 153, 0.3)",
+                      color: "#34D399",
+                      borderRadius: "0px",
+                      padding: "6px 12px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      width: "100%",
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  >
+                    + Add Question Details
+                  </button>
+                  {isCustom && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Are you sure you want to delete this question?`)) {
+                          onDeleteQuestion(activePaperId);
+                        }
+                      }}
+                      style={{
+                        background: "rgba(239, 68, 68, 0.1)",
+                        border: "1px solid rgba(239, 68, 68, 0.3)",
+                        color: "#EF4444",
+                        borderRadius: "0px",
+                        padding: "6px 12px",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        width: "100%",
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    >
+                      Delete Empty Question
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
