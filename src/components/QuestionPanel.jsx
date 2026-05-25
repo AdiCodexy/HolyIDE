@@ -341,6 +341,10 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
           existingQuestion={question}
           onClose={() => setShowAddModal(false)}
           onSuccess={(newQuestion) => {
+            const filePath = activePaperId.replace(/\\/g, '/');
+            if (!window.__questionCache) window.__questionCache = {};
+            window.__questionCache[filePath] = newQuestion;
+
             setQuestion(newQuestion);
             setShowAddModal(false);
           }}
