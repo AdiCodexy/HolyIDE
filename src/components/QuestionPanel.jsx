@@ -209,6 +209,38 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
                 </div>
               )}
 
+              {/* Admin edit button */}
+              {isAdmin && (
+                <div style={{ marginTop: "16px" }}>
+                  <button
+                    onClick={() => setShowAddModal(true)}
+                    style={{
+                      width: "100%",
+                      background: "rgba(52, 211, 153, 0.1)",
+                      border: "1px solid rgba(52, 211, 153, 0.3)",
+                      color: "#34D399",
+                      borderRadius: "0px",
+                      padding: "8px 12px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      fontFamily: "'JetBrains Mono', monospace",
+                      transition: "all 0.2s"
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = "#34D399";
+                      e.currentTarget.style.color = "#000000";
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = "rgba(52, 211, 153, 0.1)";
+                      e.currentTarget.style.color = "#34D399";
+                    }}
+                  >
+                    Edit Question Details
+                  </button>
+                </div>
+              )}
+
               {/* Admin delete button */}
               {isAdmin && isCustom && (
                 <div style={{ marginTop: "24px", borderTop: "1px solid rgba(255, 255, 255, 0.06)", paddingTop: "16px" }}>
@@ -306,6 +338,7 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
       {showAddModal && (
         <AddQuestionModal
           activePaperId={activePaperId}
+          existingQuestion={question}
           onClose={() => setShowAddModal(false)}
           onSuccess={(newQuestion) => {
             setQuestion(newQuestion);

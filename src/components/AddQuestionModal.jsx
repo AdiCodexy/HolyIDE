@@ -1,17 +1,27 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 
-export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) {
-  const [topic, setTopic] = useState("");
-  const [questionText, setQuestionText] = useState("");
-  const [answerText, setAnswerText] = useState(""); // New state for solution code
-  const [testCases, setTestCases] = useState([
-    { input: "", expected: "" },
-    { input: "", expected: "" },
-    { input: "", expected: "" }
-  ]);
+export default function AddQuestionModal({ activePaperId, existingQuestion, onClose, onSuccess }) {
+  const [topic, setTopic] = useState(existingQuestion?.topic || "");
+  const [questionText, setQuestionText] = useState(existingQuestion?.question_text || "");
+  const [answerText, setAnswerText] = useState(existingQuestion?.answer_text || ""); // New state for solution code
+  const [testCases, setTestCases] = useState(() => {
+    if (existingQuestion?.test_cases && existingQuestion.test_cases.length > 0) {
+      return existingQuestion.test_cases;
+    }
+    return [
+      { input: "", expected: "" },
+      { input: "", expected: "" },
+      { input: "", expected: "" }
+    ];
+  });
   const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imagePreview, setImagePreview] = useState(() => {
+    if (existingQuestion?.screenshot_url && existingQuestion.screenshot_url !== "placeholder") {
+      return existingQuestion.screenshot_url;
+    }
+    return null;
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -83,7 +93,7 @@ export default function AddQuestionModal({ activePaperId, onClose, onSuccess }) 
     const filename = filePath.split('/').pop();
 
     try {
-      let uploadedUrl = null;
+      let uploadedUrl = existingQuestion?.screenshot_url || "placeholder";
 
       // 1. Process image upload if an image was provided via file explorer or clipboard paste
       if (imageFile) {
