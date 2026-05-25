@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Editor } from "@monaco-editor/react";
 import { supabase, isSupabaseConfigured } from "../supabaseClient";
 import { SNIPPETS } from "./snippets";
+import { executeCode, initPyodide } from "../utils/executionEngine";
 
 export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onCloseTab, testCases = [] }) {
   const [content, setContent] = useState("");
@@ -37,6 +38,10 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
       console.error('Failed save:', err);
     }
   };
+
+  useEffect(() => {
+    initPyodide();
+  }, []);
 
   useEffect(() => {
     if (saveTimeoutRef.current && prevPaperIdRef.current) {
@@ -225,7 +230,7 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
         }}>
           {/* Brutalist RUN Button */}
           <button
-            onClick={(e) => {
+            onClick={async (e) => {
               e.stopPropagation();
               if (!content.trim() || isExecuting) return;
 
@@ -236,104 +241,72 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
               if (testCases && testCases.length > 0) {
                 writeToTerminal(`> Executing ${currentFileInfo.filename} against ${testCases.length} test cases...\n`);
 
-                const promises = testCases.map((tc, index) => {
-                  return fetch('https://emkc.org/api/v2/piston/execute', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      language: lang,
-                      version: "*",
-                      files: [{ name: currentFileInfo.filename, content: content }],
-                      stdin: tc.input
-                    })
-                  })
-                    .then(res => res.json())
-                    .then(data => ({ index, testCase: tc, data }))
-                    .catch(err => ({ index, testCase: tc, error: err }));
+                const promises = testCases.map(async (tc, index) => {
+                  const result = await executeCode(lang, content, tc.input);
+                  return { index, testCase: tc, result };
                 });
 
-                Promise.all(promises)
-                  .then(results => {
-                    setIsExecuting(false);
-                    let passedCount = 0;
+                try {
+                  const results = await Promise.all(promises);
+                  setIsExecuting(false);
+                  let passedCount = 0;
 
-                    // Sort results by index to print them in order
-                    results.sort((a, b) => a.index - b.index);
+                  // Sort results by index to print them in order
+                  results.sort((a, b) => a.index - b.index);
 
-                    results.forEach(({ index, testCase, data, error }) => {
-                      writeToTerminal(`\n--- Test Case #${index + 1} ---\n`);
-                      writeToTerminal(`Input:    ${testCase.input !== undefined && testCase.input !== null ? testCase.input : "(none)"}\n`);
-                      writeToTerminal(`Expected: ${testCase.expected}\n`);
+                  results.forEach(({ index, testCase, result }) => {
+                    writeToTerminal(`\n--- Test Case #${index + 1} ---\n`);
+                    writeToTerminal(`Input:    ${testCase.input !== undefined && testCase.input !== null ? testCase.input : "(none)"}\n`);
+                    writeToTerminal(`Expected: ${testCase.expected}\n`);
 
-                      if (error) {
-                        writeToTerminal(`Result:   ✗ FAILED (Execution Error: ${error.message})\n`);
-                      } else if (data.message) {
-                        writeToTerminal(`Result:   ✗ FAILED (Execution Error: ${data.message})\n`);
-                      } else if (data.run) {
-                        if (data.run.stderr) {
-                          writeToTerminal(`Actual (stderr): ${data.run.stderr}`);
-                          writeToTerminal(`Result:   ✗ FAILED (Exit Code: ${data.run.code})\n`);
-                        } else {
-                          const actual = data.run.stdout ? data.run.stdout : "";
-                          const cleanActual = actual.replace(/\r\n/g, "\n").trim();
-                          const cleanExpected = testCase.expected.replace(/\r\n/g, "\n").trim();
-
-                          writeToTerminal(`Actual:   ${cleanActual || "(no output)"}\n`);
-
-                          if (cleanActual === cleanExpected) {
-                            writeToTerminal(`Result:   ✓ PASSED\n`);
-                            passedCount++;
-                          } else {
-                            writeToTerminal(`Result:   ✗ FAILED\n`);
-                          }
-                        }
-                      } else {
-                        writeToTerminal(`Result:   ✗ FAILED (Unknown Piston error)\n`);
-                      }
-                    });
-
-                    // Print summary banner
-                    writeToTerminal("\n==================================================\n");
-                    if (passedCount === testCases.length) {
-                      writeToTerminal(`✓ CONGRATULATIONS! ALL ${testCases.length} TEST CASES PASSED!\n`);
-                      saveToSupabase(content, paperId);
+                    if (!result.success) {
+                      writeToTerminal(`Result:   ✗ FAILED (Execution Error: ${result.error})\n`);
                     } else {
-                      writeToTerminal(`✗ FAILED: ${testCases.length - passedCount}/${testCases.length} test cases failed.\n`);
+                      const actual = result.output ? result.output : "";
+                      const cleanActual = actual.replace(/\r\n/g, "\n").trim();
+                      const cleanExpected = testCase.expected.replace(/\r\n/g, "\n").trim();
+
+                      writeToTerminal(`Actual:   ${cleanActual || "(no output)"}\n`);
+
+                      if (cleanActual === cleanExpected) {
+                        writeToTerminal(`Result:   ✓ PASSED\n`);
+                        passedCount++;
+                      } else {
+                        writeToTerminal(`Result:   ✗ FAILED\n`);
+                      }
                     }
-                    writeToTerminal("==================================================\n");
-                  })
-                  .catch(err => {
-                    setIsExecuting(false);
-                    writeToTerminal(`\n> Testing Failure: ${err.message}\n`);
                   });
+
+                  // Print summary banner
+                  writeToTerminal("\n==================================================\n");
+                  if (passedCount === testCases.length) {
+                    writeToTerminal(`✓ CONGRATULATIONS! ALL ${testCases.length} TEST CASES PASSED!\n`);
+                    saveToSupabase(content, paperId);
+                  } else {
+                    writeToTerminal(`✗ FAILED: ${testCases.length - passedCount}/${testCases.length} test cases failed.\n`);
+                  }
+                  writeToTerminal("==================================================\n");
+                } catch (err) {
+                  setIsExecuting(false);
+                  writeToTerminal(`\n> Testing Failure: ${err.message}\n`);
+                }
               } else {
                 // Default single execution when no test cases are defined
                 writeToTerminal(`> Executing ${currentFileInfo.filename}...\n`);
 
-                fetch('https://emkc.org/api/v2/piston/execute', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    language: lang,
-                    version: "*",
-                    files: [{ name: currentFileInfo.filename, content: content }]
-                  })
-                })
-                  .then(res => res.json())
-                  .then(data => {
-                    setIsExecuting(false);
-                    if (data.message) {
-                      writeToTerminal(`\nError: ${data.message}\n`);
-                    } else if (data.run) {
-                      if (data.run.stdout) writeToTerminal(data.run.stdout);
-                      if (data.run.stderr) writeToTerminal(data.run.stderr);
-                      writeToTerminal(`\n> Exit Code: ${data.run.code}\n`);
-                    }
-                  })
-                  .catch(err => {
-                    setIsExecuting(false);
-                    writeToTerminal(`\n> System Failure: ${err.message}\n`);
-                  });
+                try {
+                  const result = await executeCode(lang, content, "");
+                  setIsExecuting(false);
+                  if (!result.success) {
+                    writeToTerminal(`\nError: ${result.error}\n`);
+                  } else {
+                    if (result.output) writeToTerminal(result.output);
+                    writeToTerminal(`\n> Execution Completed\n`);
+                  }
+                } catch (err) {
+                  setIsExecuting(false);
+                  writeToTerminal(`\n> System Failure: ${err.message}\n`);
+                }
               }
             }}
             disabled={isExecuting}
@@ -391,6 +364,7 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
             cursorSmoothCaretAnimation: "on",
             formatOnPaste: true,
             padding: { top: 24, bottom: 24 },
+            automaticLayout: true,
           }}
         />
       </div>
