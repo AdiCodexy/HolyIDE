@@ -15,7 +15,7 @@ let isPyodideLoading = false;
 export async function initPyodide() {
   if (pyodideInstance || isPyodideLoading) return;
   isPyodideLoading = true;
-  
+
   try {
     if (window.loadPyodide) {
       pyodideInstance = await window.loadPyodide({
@@ -62,10 +62,10 @@ async function executePythonWithPyodide(code, userInputs) {
 
     // Split userInputs into an array of lines
     const inputLines = userInputs ? userInputs.split('\n') : [];
-    
+
     // Captured output
     let stdoutData = [];
-    
+
     // We will override Pyodide's stdout and stdin
     pyodideInstance.setStdout({
       batched: (text) => {
@@ -85,7 +85,7 @@ async function executePythonWithPyodide(code, userInputs) {
 
     // Run the code
     await pyodideInstance.runPythonAsync(code);
-    
+
     return {
       success: true,
       output: stdoutData.join("\n"),
@@ -107,14 +107,14 @@ async function executeWithOnlineCompiler(code, userInputs) {
   try {
     const targetUrl = 'https://api.onlinecompiler.io/api/run-code-sync/';
     const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&reqHeaders=authorization:568f8cc77a30debc0a0fba2c24d2c3ab&reqHeaders=content-type:application/json`;
-    
+
     const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain'
       },
       body: JSON.stringify({
-        compiler: 'java-25',
+        compiler: 'java',
         code: code,
         input: userInputs || ""
       })
@@ -125,7 +125,7 @@ async function executeWithOnlineCompiler(code, userInputs) {
     }
 
     const result = await response.json();
-    
+
     return {
       success: result.status === 'success',
       output: result.output,
