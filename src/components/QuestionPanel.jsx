@@ -142,6 +142,26 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
                 </div>
               )}
 
+              {/* Render Test Cases if they exist */}
+              {question.test_cases && question.test_cases.length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "4px" }}>
+                  <div style={{ color: "#7A7A7A", fontSize: "11px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Test Cases</div>
+                  {question.test_cases.map((tc, idx) => (
+                    <div key={idx} style={{ background: "rgba(255, 255, 255, 0.02)", border: "1px solid rgba(255, 255, 255, 0.04)", borderRadius: "6px", padding: "12px", fontSize: "12px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <div style={{ display: "flex", gap: "12px" }}>
+                        <span style={{ color: "#7A7A7A", width: "60px", flexShrink: 0 }}>Input:</span> 
+                        <span style={{ color: "#D4D4D4", fontFamily: "'JetBrains Mono', monospace", whiteSpace: "pre-wrap" }}>{tc.input || "(none)"}</span>
+                      </div>
+                      <div style={{ height: "1px", background: "rgba(255,255,255,0.03)" }}></div>
+                      <div style={{ display: "flex", gap: "12px" }}>
+                        <span style={{ color: "#7A7A7A", width: "60px", flexShrink: 0 }}>Expected:</span> 
+                        <span style={{ color: "#34D399", fontFamily: "'JetBrains Mono', monospace", whiteSpace: "pre-wrap" }}>{tc.expected}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Collapsible Answer Key Render Frame Block */}
               {question.answer_text && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "4px" }}>

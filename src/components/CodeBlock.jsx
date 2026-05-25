@@ -8,6 +8,7 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   const saveTimeoutRef = useRef(null);
   const latestContentRef = useRef("");
@@ -236,6 +237,7 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
 
               writeToTerminal('', 'clear');
               setIsExecuting(true);
+              setTestResult(null);
               const lang = monacoLang === "python" ? "python" : "java";
 
               if (testCases && testCases.length > 0) {
@@ -281,13 +283,16 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
                   writeToTerminal("\n==================================================\n");
                   if (passedCount === testCases.length) {
                     writeToTerminal(`✓ CONGRATULATIONS! ALL ${testCases.length} TEST CASES PASSED!\n`);
+                    setTestResult({ type: 'success', message: '✓ ALL TESTS PASSED' });
                     saveToSupabase(content, paperId);
                   } else {
                     writeToTerminal(`✗ FAILED: ${testCases.length - passedCount}/${testCases.length} test cases failed.\n`);
+                    setTestResult({ type: 'error', message: `✗ ${testCases.length - passedCount} TESTS FAILED` });
                   }
                   writeToTerminal("==================================================\n");
                 } catch (err) {
                   setIsExecuting(false);
+                  setTestResult({ type: 'error', message: '✗ EXECUTION ERROR' });
                   writeToTerminal(`\n> Testing Failure: ${err.message}\n`);
                 }
               } else {
@@ -299,12 +304,15 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
                   setIsExecuting(false);
                   if (!result.success) {
                     writeToTerminal(`\nError: ${result.error}\n`);
+                    setTestResult({ type: 'error', message: '✗ EXECUTION FAILED' });
                   } else {
                     if (result.output) writeToTerminal(result.output);
                     writeToTerminal(`\n> Execution Completed\n`);
+                    setTestResult({ type: 'success', message: '✓ EXECUTION COMPLETED' });
                   }
                 } catch (err) {
                   setIsExecuting(false);
+                  setTestResult({ type: 'error', message: '✗ SYSTEM ERROR' });
                   writeToTerminal(`\n> System Failure: ${err.message}\n`);
                 }
               }
@@ -346,6 +354,33 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
         overflow: "hidden",
         position: "relative",
       }}>
+        {testResult && (
+          <div style={{
+            position: "absolute",
+            top: "16px",
+            right: "24px",
+            zIndex: 10,
+            background: testResult.type === 'success' ? "rgba(52, 211, 153, 0.12)" : "rgba(239, 68, 68, 0.12)",
+            border: testResult.type === 'success' ? "1px solid rgba(52, 211, 153, 0.3)" : "1px solid rgba(239, 68, 68, 0.3)",
+            color: testResult.type === 'success' ? "#34D399" : "#EF4444",
+            padding: "8px 16px",
+            borderRadius: "6px",
+            fontSize: "12px",
+            fontWeight: 600,
+            backdropFilter: "blur(8px)",
+            animation: "fadeIn 0.3s ease-out",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+          }}>
+            {testResult.message}
+            <button 
+              onClick={() => setTestResult(null)}
+              style={{ background: "transparent", border: "none", color: "inherit", opacity: 0.7, cursor: "pointer", padding: "0 0 0 4px", fontSize: "14px" }}
+            >×</button>
+          </div>
+        )}
         {/* Using standard vs-dark, but Monaco is flexible */}
         <Editor
           height="100%"
