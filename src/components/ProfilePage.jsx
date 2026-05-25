@@ -8,9 +8,8 @@ function getSubjectName(filePath) {
   
   if (firstSegment.startsWith("py-") || firstSegment === "py") return "Python";
   if (firstSegment.startsWith("pdsa-") || firstSegment === "pdsa") return "PDSA";
-  if (firstSegment.startsWith("mad1-") || firstSegment === "mad1") return "MAD 1";
-  if (firstSegment.startsWith("mad2-") || firstSegment === "mad2") return "MAD 2";
   if (firstSegment.startsWith("java-") || firstSegment === "java") return "Java";
+  if (firstSegment.startsWith("dbms-") || firstSegment === "dbms") return "DBMS";
   
   return firstSegment;
 }

@@ -260,251 +260,6 @@ print("Quick Sort:", quick_sort(data))
     ],
   },
   {
-    name: "MAD 1",
-    questions: [
-      {
-        id: "mad1-1",
-        label: "Flask Routing & Templates",
-        filename: "week4_exam.py",
-        language: "Python · Flask",
-        code: `# MAD1 Week 4 Exam — Flask Routing & Templates
-# ─────────────────────────────────────────────
-
-from flask import Flask, render_template, request, redirect, url_for
-
-app = Flask(__name__)
-
-# Q1: Define a route that accepts GET and POST
-@app.route("/submit", methods=["GET", "POST"])
-def submit():
-    if request.method == "POST":
-        name = request.form.get("name", "")
-        return redirect(url_for("greet", name=name))
-    return render_template("submit.html")
-
-# Q2: Dynamic URL segments
-@app.route("/greet/<name>")
-def greet(name):
-    return render_template("greet.html", username=name)
-
-if __name__ == "__main__":
-    app.run(debug=True)
-`,
-      },
-      {
-        id: "mad1-2",
-        label: "Flask + SQLAlchemy CRUD",
-        filename: "mad1_endsem.py",
-        language: "Python · Flask + SQLAlchemy",
-        code: `# MAD1 End-Sem — Flask + SQLAlchemy CRUD
-# ────────────────────────────────────────
-
-from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
-
-app = Flask(__name__)
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///students.db"
-db = SQLAlchemy(app)
-
-class Student(db.Model):
-    id      = db.Column(db.Integer, primary_key=True)
-    name    = db.Column(db.String(80), nullable=False)
-    roll_no = db.Column(db.String(20), unique=True, nullable=False)
-
-    def to_dict(self):
-        return {"id": self.id, "name": self.name, "roll": self.roll_no}
-
-@app.route("/students", methods=["GET"])
-def get_students():
-    return jsonify([s.to_dict() for s in Student.query.all()])
-
-@app.route("/students", methods=["POST"])
-def add_student():
-    data = request.get_json()
-    s = Student(name=data["name"], roll_no=data["roll_no"])
-    db.session.add(s)
-    db.session.commit()
-    return jsonify(s.to_dict()), 201
-
-if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
-`,
-      },
-      {
-        id: "mad1-3",
-        label: "Jinja2 Templates",
-        filename: "mad1_jinja.py",
-        language: "Python · Jinja2",
-        code: `# MAD1 — Jinja2 Templating Basics
-# ─────────────────────────────────
-
-from flask import Flask, render_template_string
-
-app = Flask(__name__)
-
-# Q1: Template with loops and conditionals
-TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<body>
-  <h1>Student Report</h1>
-  <table>
-    <tr><th>Name</th><th>Grade</th><th>Status</th></tr>
-    {% for s in students %}
-    <tr>
-      <td>{{ s.name }}</td>
-      <td>{{ s.grade }}</td>
-      <td>{{ "Pass" if s.grade >= 40 else "Fail" }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-  <p>Total: {{ students | length }} students</p>
-</body>
-</html>
-"""
-
-@app.route("/report")
-def report():
-    students = [
-        {"name": "Alice", "grade": 92},
-        {"name": "Bob",   "grade": 35},
-        {"name": "Carol", "grade": 78},
-    ]
-    return render_template_string(TEMPLATE, students=students)
-
-if __name__ == "__main__":
-    app.run(debug=True)
-`,
-      },
-    ],
-  },
-  {
-    name: "MAD 2",
-    questions: [
-      {
-        id: "mad2-1",
-        label: "Vue.js Components",
-        filename: "mad2_vue.js",
-        language: "JavaScript · Vue",
-        code: `// MAD2 — Vue.js Component Basics
-// ────────────────────────────────
-
-const app = Vue.createApp({
-  data() {
-    return {
-      tasks: [
-        { id: 1, text: "Complete Week 4 Quiz", done: false },
-        { id: 2, text: "Submit Lab Assignment", done: true },
-        { id: 3, text: "Review Lecture Notes",  done: false },
-      ],
-      newTask: "",
-    };
-  },
-
-  computed: {
-    // Q1: Computed property for pending count
-    pendingCount() {
-      return this.tasks.filter(t => !t.done).length;
-    },
-  },
-
-  methods: {
-    // Q2: Add a new task
-    addTask() {
-      if (!this.newTask.trim()) return;
-      this.tasks.push({
-        id: Date.now(),
-        text: this.newTask.trim(),
-        done: false,
-      });
-      this.newTask = "";
-    },
-
-    // Q3: Toggle task completion
-    toggleTask(id) {
-      const task = this.tasks.find(t => t.id === id);
-      if (task) task.done = !task.done;
-    },
-
-    // Q4: Remove completed tasks
-    clearDone() {
-      this.tasks = this.tasks.filter(t => !t.done);
-    },
-  },
-});
-
-app.mount("#app");
-`,
-      },
-      {
-        id: "mad2-2",
-        label: "REST API with Flask",
-        filename: "mad2_api.py",
-        language: "Python · REST API",
-        code: `# MAD2 — RESTful API Design
-# ──────────────────────────
-
-from flask import Flask, request, jsonify
-from flask_restful import Api, Resource
-
-app = Flask(__name__)
-api = Api(app)
-
-# In-memory store
-tasks = {}
-next_id = 1
-
-class TaskList(Resource):
-    """GET all tasks, POST a new task."""
-
-    def get(self):
-        return jsonify(list(tasks.values()))
-
-    def post(self):
-        global next_id
-        data = request.get_json()
-        task = {
-            "id": next_id,
-            "title": data["title"],
-            "status": "pending",
-        }
-        tasks[next_id] = task
-        next_id += 1
-        return task, 201
-
-class TaskItem(Resource):
-    """GET, PUT, DELETE a single task."""
-
-    def get(self, task_id):
-        if task_id not in tasks:
-            return {"error": "Not found"}, 404
-        return tasks[task_id]
-
-    def put(self, task_id):
-        if task_id not in tasks:
-            return {"error": "Not found"}, 404
-        data = request.get_json()
-        tasks[task_id].update(data)
-        return tasks[task_id]
-
-    def delete(self, task_id):
-        if task_id not in tasks:
-            return {"error": "Not found"}, 404
-        del tasks[task_id]
-        return "", 204
-
-api.add_resource(TaskList, "/api/tasks")
-api.add_resource(TaskItem, "/api/tasks/<int:task_id>")
-
-if __name__ == "__main__":
-    app.run(debug=True)
-`,
-      },
-    ],
-  },
-  {
     name: "Java",
     questions: [
       {
@@ -699,6 +454,160 @@ public class JavaThreads {
             account.getBalance());
     }
 }
+`,
+      },
+    ],
+  },
+  {
+    name: "DBMS",
+    questions: [
+      {
+        id: "dbms-1",
+        label: "DDL & Table Creation",
+        filename: "dbms_ddl.sql",
+        language: "SQL",
+        code: `-- DBMS — DDL & Table Creation
+-- ────────────────────────────
+
+-- Q1: Create a students table with proper constraints
+CREATE TABLE students (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT NOT NULL,
+    roll_no     TEXT UNIQUE NOT NULL,
+    department  TEXT NOT NULL DEFAULT 'CS',
+    cgpa        REAL CHECK (cgpa >= 0.0 AND cgpa <= 10.0),
+    enrolled_on DATE DEFAULT CURRENT_DATE
+);
+
+-- Q2: Create a courses table
+CREATE TABLE courses (
+    course_id   TEXT PRIMARY KEY,
+    title       TEXT NOT NULL,
+    credits     INTEGER NOT NULL CHECK (credits > 0),
+    instructor  TEXT
+);
+
+-- Q3: Create an enrollment junction table (many-to-many)
+CREATE TABLE enrollments (
+    student_id  INTEGER REFERENCES students(id) ON DELETE CASCADE,
+    course_id   TEXT    REFERENCES courses(course_id) ON DELETE CASCADE,
+    semester    TEXT    NOT NULL,
+    grade       TEXT,
+    PRIMARY KEY (student_id, course_id, semester)
+);
+
+-- Q4: Insert sample data
+INSERT INTO students (name, roll_no, department, cgpa)
+VALUES
+    ('Alice Sharma', 'CS2101', 'CS', 9.2),
+    ('Bob Patel',    'CS2102', 'CS', 7.8),
+    ('Carol Das',    'MA2101', 'Math', 8.5);
+
+INSERT INTO courses (course_id, title, credits, instructor)
+VALUES
+    ('CS201', 'Data Structures', 4, 'Dr. Kumar'),
+    ('CS301', 'Database Systems', 3, 'Dr. Rao'),
+    ('MA101', 'Linear Algebra',  4, 'Dr. Sen');
+`,
+      },
+      {
+        id: "dbms-2",
+        label: "Joins & Aggregations",
+        filename: "dbms_joins.sql",
+        language: "SQL",
+        code: `-- DBMS — Joins & Aggregations
+-- ────────────────────────────
+
+-- Q1: INNER JOIN — List all students with their enrolled courses
+SELECT s.name, s.roll_no, c.title, e.semester, e.grade
+FROM students s
+INNER JOIN enrollments e ON s.id = e.student_id
+INNER JOIN courses c     ON e.course_id = c.course_id
+ORDER BY s.name, e.semester;
+
+-- Q2: LEFT JOIN — Show all students, even those not enrolled
+SELECT s.name, s.department,
+       COALESCE(c.title, 'No Enrollment') AS course
+FROM students s
+LEFT JOIN enrollments e ON s.id = e.student_id
+LEFT JOIN courses c     ON e.course_id = c.course_id;
+
+-- Q3: GROUP BY with HAVING — Departments with avg CGPA > 8
+SELECT department,
+       COUNT(*)        AS student_count,
+       ROUND(AVG(cgpa), 2) AS avg_cgpa
+FROM students
+GROUP BY department
+HAVING AVG(cgpa) > 8.0
+ORDER BY avg_cgpa DESC;
+
+-- Q4: Subquery — Students with CGPA above average
+SELECT name, cgpa
+FROM students
+WHERE cgpa > (SELECT AVG(cgpa) FROM students)
+ORDER BY cgpa DESC;
+
+-- Q5: COUNT enrollments per course
+SELECT c.title,
+       COUNT(e.student_id) AS total_enrolled
+FROM courses c
+LEFT JOIN enrollments e ON c.course_id = e.course_id
+GROUP BY c.course_id
+ORDER BY total_enrolled DESC;
+`,
+      },
+      {
+        id: "dbms-3",
+        label: "Views, Indexes & Transactions",
+        filename: "dbms_advanced.sql",
+        language: "SQL",
+        code: `-- DBMS — Views, Indexes & Transactions
+-- ──────────────────────────────────────
+
+-- Q1: Create a VIEW for the student report card
+CREATE VIEW student_report AS
+SELECT s.name,
+       s.roll_no,
+       c.title       AS course,
+       c.credits,
+       e.grade,
+       e.semester
+FROM students s
+JOIN enrollments e ON s.id = e.student_id
+JOIN courses c     ON e.course_id = c.course_id;
+
+-- Usage:
+-- SELECT * FROM student_report WHERE name = 'Alice Sharma';
+
+-- Q2: Create indexes for performance
+CREATE INDEX idx_students_dept ON students(department);
+CREATE INDEX idx_enrollments_student ON enrollments(student_id);
+CREATE INDEX idx_enrollments_course  ON enrollments(course_id);
+
+-- Q3: Transaction — Transfer a student between departments
+BEGIN TRANSACTION;
+
+UPDATE students
+SET department = 'CS'
+WHERE roll_no = 'MA2101';
+
+-- Verify the update
+SELECT name, department FROM students WHERE roll_no = 'MA2101';
+
+COMMIT;
+
+-- Q4: DELETE with a subquery — Remove students with no enrollments
+DELETE FROM students
+WHERE id NOT IN (
+    SELECT DISTINCT student_id FROM enrollments
+);
+
+-- Q5: UPDATE with JOIN logic — Set grade to 'A' for high CGPA students
+UPDATE enrollments
+SET grade = 'A'
+WHERE student_id IN (
+    SELECT id FROM students WHERE cgpa >= 9.0
+);
 `,
       },
     ],
