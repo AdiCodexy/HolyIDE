@@ -114,7 +114,7 @@ async function executeWithOnlineCompiler(code, userInputs) {
         'Content-Type': 'text/plain'
       },
       body: JSON.stringify({
-        compiler: 'java',
+        compiler: 'openjdk-25',
         code: code,
         input: userInputs || ""
       })
