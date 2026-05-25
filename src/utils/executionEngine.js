@@ -105,13 +105,13 @@ async function executePythonWithPyodide(code, userInputs) {
  */
 async function executeWithOnlineCompiler(code, userInputs) {
   try {
-    const API_URL = 'https://corsproxy.io/?https://api.onlinecompiler.io/api/run-code-sync/';
+    const targetUrl = 'https://api.onlinecompiler.io/api/run-code-sync/';
+    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&reqHeaders=authorization:568f8cc77a30debc0a0fba2c24d2c3ab&reqHeaders=content-type:application/json`;
     
-    const response = await fetch(API_URL, {
+    const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
-        'Authorization': '568f8cc77a30debc0a0fba2c24d2c3ab',
-        'Content-Type': 'application/json'
+        'Content-Type': 'text/plain'
       },
       body: JSON.stringify({
         compiler: 'java-25',
