@@ -44,7 +44,7 @@ export async function executeCode(language, code, userInputs = "") {
   if (language === 'python') {
     return await executePythonWithPyodide(code, userInputs);
   } else {
-    return await executeWithPistonAPI(language, code, userInputs);
+    return await executeWithOnlineCompiler(code, userInputs);
   }
 }
 
@@ -101,63 +101,35 @@ async function executePythonWithPyodide(code, userInputs) {
 }
 
 /**
- * Execute compiled languages via remote REST API (Piston payload format).
+ * Execute compiled languages via remote REST API (onlinecompiler.io).
  */
-async function executeWithPistonAPI(language, code, userInputs) {
+async function executeWithOnlineCompiler(code, userInputs) {
   try {
-    // The prompt specified http://YOUR_API_IP:2000/api/v2/execute as placeholder
-    // Using the public Piston API which was in use previously
-    const API_URL = 'https://emkc.org/api/v2/piston/execute';
+    const API_URL = 'https://api.onlinecompiler.io/api/run-code/';
     
-    const payload = {
-      language: language,
-      version: "*",
-      files: [{
-        content: code
-      }],
-      stdin: userInputs || ""
-    };
-
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      headers: {
+        'Authorization': '568f8cc77a30debc0a0fba2c24d2c3ab',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        compiler: 'java-25',
+        code: code,
+        input: userInputs || ""
+      })
     });
 
     if (!response.ok) {
       throw new Error(`API error: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const result = await response.json();
     
-    if (data.message) {
-      return {
-        success: false,
-        output: "",
-        error: data.message
-      };
-    }
-
-    if (data.run) {
-      if (data.run.code !== 0 || data.run.stderr) {
-        return {
-          success: false,
-          output: data.run.stdout || "",
-          error: data.run.stderr || `Process exited with code ${data.run.code}`
-        };
-      }
-      
-      return {
-        success: true,
-        output: data.run.stdout || "",
-        error: ""
-      };
-    }
-
     return {
-      success: false,
-      output: "",
-      error: "Unknown Piston response format"
+      success: result.status === 'success',
+      output: result.output,
+      error: result.error
     };
   } catch (error) {
     return {
