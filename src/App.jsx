@@ -111,7 +111,7 @@ export default function App() {
       }
     }
     fetchDeleted();
-  }, [sidebarRefreshTrigger]);
+  }, [sidebarRefreshTrigger, user?.id]);
 
   const handleAddQuestion = useCallback(async (subjectName, cleanName) => {
     if (!isSupabaseConfigured) return;
@@ -506,6 +506,7 @@ export default function App() {
               loading={loadingQuestion}
               setQuestion={setActiveQuestion}
               onDeleteQuestion={handleDeleteQuestion}
+              user={user}
             />
 
             {/* ── Vertical resize handle for Question panel ── */}

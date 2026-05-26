@@ -301,32 +301,14 @@ function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode, i
   );
 }
 
-export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile, onGoHome, subjectFilter, refreshTrigger, onAddQuestion, onDeleteQuestion, deletedDefaultIds = new Set() }) {
+export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile, onGoHome, subjectFilter, refreshTrigger, onAddQuestion, onDeleteQuestion, deletedDefaultIds = new Set(), user }) {
   const [collapsed, setCollapsed] = useState(false);
   const [expanded, setExpanded] = useState({});
   const [treeData, setTreeData] = useState([]);
   const [userProfile, setUserProfile] = useState({ name: "S", avatarUrl: null });
-  const [isAdmin, setIsAdmin] = useState(false);
 
   const ADMIN_EMAIL = "adityakarale7@gmail.com";
-
-  // Check admin role
-  useEffect(() => {
-    async function checkAdminPrivileges() {
-      if (!isSupabaseConfigured) return;
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && user.email === ADMIN_EMAIL) {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-        }
-      } catch (err) {
-        console.error("Error checking admin privileges:", err);
-      }
-    }
-    checkAdminPrivileges();
-  }, []);
+  const isAdmin = user?.email === ADMIN_EMAIL;
 
   // Fetch Tree Data & User Profile Avatar
   useEffect(() => {
@@ -424,7 +406,7 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
       }
     }
     loadData();
-  }, [refreshTrigger]);
+  }, [refreshTrigger, user?.id]);
 
   const toggleNode = (path) => setExpanded(prev => ({ ...prev, [path]: !prev[path] }));
 

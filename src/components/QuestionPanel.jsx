@@ -3,29 +3,15 @@ import { supabase, isSupabaseConfigured } from "../supabaseClient";
 import AddQuestionModal from "./AddQuestionModal";
 import { SNIPPETS } from "./snippets";
 
-export default function QuestionPanel({ activePaperId, width, question, loading, setQuestion, onDeleteQuestion }) {
+export default function QuestionPanel({ activePaperId, width, question, loading, setQuestion, onDeleteQuestion, user }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSolution, setShowSolution] = useState(false); // Collapsible status toggle state for solutions
-  const [isAdmin, setIsAdmin] = useState(false);
   const isCustom = !SNIPPETS[activePaperId];
 
   // Define your exact admin account authorization constraint string
   const ADMIN_EMAIL = "adityakarale7@gmail.com";
-
-  // 1. Verify user profile properties to safely manage admin interface permissions
-  useEffect(() => {
-    async function checkAdminPrivileges() {
-      if (!isSupabaseConfigured) return;
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.email === ADMIN_EMAIL) {
-        setIsAdmin(true);
-      } else {
-        setIsAdmin(false);
-      }
-    }
-    checkAdminPrivileges();
-  }, []);
+  const isAdmin = user?.email === ADMIN_EMAIL;
 
   // 2. Secret global keyboard gateway event intercept system
   useEffect(() => {
