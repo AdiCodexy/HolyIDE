@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase, isSupabaseConfigured } from "../supabaseClient";
-import { SUBJECTS } from "./snippets";
+import { SUBJECTS, SNIPPETS } from "./snippets";
 
 function AddQuestionInline({ subjectName, onAddQuestion, depth }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -301,7 +301,7 @@ function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode, i
   );
 }
 
-export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile, onGoHome, subjectFilter, refreshTrigger, onAddQuestion, onDeleteQuestion }) {
+export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile, onGoHome, subjectFilter, refreshTrigger, onAddQuestion, onDeleteQuestion, deletedDefaultIds = new Set() }) {
   const [collapsed, setCollapsed] = useState(false);
   const [expanded, setExpanded] = useState({});
   const [treeData, setTreeData] = useState([]);
@@ -364,11 +364,11 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
         }
       };
 
-      const deletedDefaultIds = new Set();
+      const allDeletedDefaultIds = new Set(deletedDefaultIds);
       if (qData) {
         qData.forEach(q => {
           if (q.question_text === '__DELETED__') {
-            deletedDefaultIds.add(q.file_path);
+            allDeletedDefaultIds.add(q.file_path);
           }
         });
       }
@@ -376,7 +376,7 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
       // Restore the beautiful hardcoded folder structure for default questions
       SUBJECTS.forEach(sub => {
         sub.questions.forEach(q => {
-          if (!deletedDefaultIds.has(q.id)) {
+          if (!allDeletedDefaultIds.has(q.id)) {
             addPath(`${sub.name}/2024/Term 1/${q.label}`, q.id, false);
           }
         });
@@ -385,7 +385,7 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
       // Add any custom questions from the database
       if (qData) {
         qData.forEach(q => {
-          if (q.file_path && q.question_text !== '__DELETED__') {
+          if (q.file_path && q.question_text !== '__DELETED__' && !SNIPPETS[q.file_path]) {
             addPath(q.file_path, q.file_path, true);
           }
         });

@@ -166,6 +166,14 @@ export default function App() {
 
       const idToDelete = defaultQId || filePath;
 
+      if (defaultQId) {
+        setDeletedDefaultIds(prev => {
+          const next = new Set(prev);
+          next.add(defaultQId);
+          return next;
+        });
+      }
+
       if (defaultQId && defaultQFile) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not authenticated");
@@ -468,6 +476,7 @@ export default function App() {
           refreshTrigger={sidebarRefreshTrigger}
           onAddQuestion={handleAddQuestion}
           onDeleteQuestion={handleDeleteQuestion}
+          deletedDefaultIds={deletedDefaultIds}
         />
 
         {/* ── Vertical resize handle ─────────────────────────── */}
