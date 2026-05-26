@@ -202,7 +202,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
         }
 
         // 2. Load Questions (to get the denominator/totals)
-        const { data: questionsData } = await supabase.from('questions').select('file_path');
+        const { data: questionsData } = await supabase.from('questions').select('file_path, question_text');
 
         // 3. Load User Code
         const { data: userCodeData } = await supabase
@@ -218,7 +218,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
 
         // Map out all available questions by subject
         questionsData?.forEach(q => {
-          if (!q.file_path) return;
+          if (!q.file_path || q.question_text === '__DELETED__') return;
           const subject = getSubjectName(q.file_path);
           if (!statsMap[subject]) statsMap[subject] = { name: subject, total: 0, completed: 0 };
           statsMap[subject].total++;

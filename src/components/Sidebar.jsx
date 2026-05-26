@@ -202,7 +202,7 @@ function TreeNode({ node, depth = 0, activeId, onSelect, expanded, toggleNode, i
             {node.name}
           </span>
         </button>
-        {isAdmin && node.isCustom && (
+        {isAdmin && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -335,7 +335,7 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
       let qData = null;
       if (isSupabaseConfigured) {
         try {
-          const { data } = await supabase.from('questions').select('file_path');
+          const { data } = await supabase.from('questions').select('file_path, question_text');
           qData = data;
         } catch (e) {
           console.error("Error loading custom questions:", e);
@@ -364,17 +364,28 @@ export default function Sidebar({ activeId, onSelect, width = 250, onOpenProfile
         }
       };
 
+      const deletedDefaultIds = new Set();
+      if (qData) {
+        qData.forEach(q => {
+          if (q.question_text === '__DELETED__') {
+            deletedDefaultIds.add(q.file_path);
+          }
+        });
+      }
+
       // Restore the beautiful hardcoded folder structure for default questions
       SUBJECTS.forEach(sub => {
         sub.questions.forEach(q => {
-          addPath(`${sub.name}/2024/Term 1/${q.label}`, q.id, false);
+          if (!deletedDefaultIds.has(q.id)) {
+            addPath(`${sub.name}/2024/Term 1/${q.label}`, q.id, false);
+          }
         });
       });
 
       // Add any custom questions from the database
       if (qData) {
         qData.forEach(q => {
-          if (q.file_path) {
+          if (q.file_path && q.question_text !== '__DELETED__') {
             addPath(q.file_path, q.file_path, true);
           }
         });

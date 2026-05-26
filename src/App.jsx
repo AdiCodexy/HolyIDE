@@ -8,6 +8,7 @@ import ProfilePage from "./components/ProfilePage";
 import HomePage from "./components/HomePage";
 import QuestionPanel from "./components/QuestionPanel";
 import { supabase, isSupabaseConfigured } from "./supabaseClient";
+import { SUBJECTS, SNIPPETS } from "./components/snippets";
 
 // ── Clamp helper ───────────────────────────────────────────────────
 const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
@@ -71,6 +72,46 @@ export default function App() {
 
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
+  const [deletedDefaultIds, setDeletedDefaultIds] = useState(new Set());
+
+  // ── Fetch Deleted Default Question IDs ──────────────────────────
+  useEffect(() => {
+    async function fetchDeleted() {
+      if (!isSupabaseConfigured) return;
+      try {
+        const { data } = await supabase
+          .from('questions')
+          .select('file_path')
+          .eq('question_text', '__DELETED__');
+        
+        const deletedSet = new Set(data?.map(q => q.file_path) || []);
+        setDeletedDefaultIds(deletedSet);
+
+        // Adjust active paper and open tabs if they point to a deleted question
+        setOpenTabs(prev => {
+          const next = prev.filter(id => !deletedSet.has(id));
+          if (next.length === 0) {
+            const firstActive = SUBJECTS.flatMap(sub => sub.questions).find(q => !deletedSet.has(q.id));
+            const firstActiveId = firstActive ? firstActive.id : "py-1";
+            setActivePaperId(firstActiveId);
+            return [firstActiveId];
+          }
+          return next;
+        });
+
+        setActivePaperId(current => {
+          if (deletedSet.has(current)) {
+            const firstActive = SUBJECTS.flatMap(sub => sub.questions).find(q => !deletedSet.has(q.id));
+            return firstActive ? firstActive.id : "py-1";
+          }
+          return current;
+        });
+      } catch (err) {
+        console.error("Failed to load deleted questions:", err);
+      }
+    }
+    fetchDeleted();
+  }, [sidebarRefreshTrigger]);
 
   const handleAddQuestion = useCallback(async (subjectName, cleanName) => {
     if (!isSupabaseConfigured) return;
@@ -109,31 +150,86 @@ export default function App() {
   const handleDeleteQuestion = useCallback(async (filePath) => {
     if (!isSupabaseConfigured) return;
     try {
-      const { error } = await supabase.from('questions').delete().eq('file_path', filePath);
-      if (error) throw error;
+      let defaultQId = null;
+      let defaultQFile = null;
+      for (const sub of SUBJECTS) {
+        for (const q of sub.questions) {
+          const path = `${sub.name}/2024/Term 1/${q.label}`;
+          if (q.id === filePath || path === filePath) {
+            defaultQId = q.id;
+            defaultQFile = q;
+            break;
+          }
+        }
+        if (defaultQId) break;
+      }
+
+      const idToDelete = defaultQId || filePath;
+
+      if (defaultQId && defaultQFile) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated");
+
+        const { data: existing } = await supabase
+          .from('questions')
+          .select('id')
+          .eq('file_path', defaultQId)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from('questions')
+            .update({ question_text: "__DELETED__" })
+            .eq('id', existing.id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from('questions')
+            .insert([{
+              user_id: user.id,
+              file_path: defaultQId,
+              filename: defaultQFile.filename,
+              topic: defaultQFile.language || "Default",
+              question_text: "__DELETED__",
+              screenshot_url: "placeholder",
+              answer_text: "",
+              test_cases: []
+            }]);
+          if (error) throw error;
+        }
+      } else {
+        const { error } = await supabase.from('questions').delete().eq('file_path', filePath);
+        if (error) throw error;
+      }
 
       // Invalidate cache
       if (window.__questionCache) {
-        delete window.__questionCache[filePath];
+        delete window.__questionCache[idToDelete];
+        if (defaultQId) {
+          delete window.__questionCache[filePath];
+        }
       }
 
       // Close tab if open
       setOpenTabs(prev => {
-        const next = prev.filter(t => t !== filePath);
+        const next = prev.filter(t => t !== idToDelete && t !== filePath);
         if (next.length === 0) {
-          setActivePaperId("py-1");
-          return ["py-1"];
+          const deletedSet = new Set([...deletedDefaultIds, defaultQId].filter(Boolean));
+          const firstActive = SUBJECTS.flatMap(sub => sub.questions).find(q => !deletedSet.has(q.id));
+          const firstActiveId = firstActive ? firstActive.id : "py-1";
+          setActivePaperId(firstActiveId);
+          return [firstActiveId];
         }
-        if (filePath === activePaperId) {
-          const idx = prev.indexOf(filePath);
-          const newActive = next[Math.min(idx, next.length - 1)];
+        if (idToDelete === activePaperId || filePath === activePaperId) {
+          const idx = prev.indexOf(idToDelete !== activePaperId ? filePath : idToDelete);
+          const newActive = next[Math.min(idx >= 0 ? idx : 0, next.length - 1)];
           setActivePaperId(newActive);
         }
         return next;
       });
 
       // Clear current active question if it is the deleted one
-      if (activePaperId === filePath) {
+      if (activePaperId === idToDelete || activePaperId === filePath) {
         setActiveQuestion(null);
       }
 
@@ -143,7 +239,7 @@ export default function App() {
       console.error("Failed to delete question:", err);
       alert("Failed to delete question: " + err.message);
     }
-  }, [activePaperId]);
+  }, [activePaperId, deletedDefaultIds]);
 
   // ── Fetch Question Details centrally ─────────────────────────────
   useEffect(() => {
@@ -322,10 +418,17 @@ export default function App() {
       {/* ── Full-screen Home Page ───────────────────────────────── */}
       {currentView === "home" && (
         <HomePage
+          deletedDefaultIds={deletedDefaultIds}
           onOpenIDE={() => handleTransition(() => { setSubjectFilter(null); setCurrentView("ide"); })}
           onOpenSubject={(subjectName, questionId) => handleTransition(() => {
+            let targetId = questionId;
+            if (deletedDefaultIds.has(questionId)) {
+              const sub = SUBJECTS.find(s => s.name === subjectName);
+              const firstActive = sub?.questions.find(q => !deletedDefaultIds.has(q.id));
+              targetId = firstActive ? firstActive.id : null;
+            }
             setSubjectFilter(subjectName);
-            handleSelect(questionId);
+            if (targetId) handleSelect(targetId);
             setCurrentView("ide");
           })}
         />

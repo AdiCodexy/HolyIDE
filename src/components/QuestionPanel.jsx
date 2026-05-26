@@ -242,7 +242,7 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
               )}
 
               {/* Admin delete button */}
-              {isAdmin && isCustom && (
+              {isAdmin && (
                 <div style={{ marginTop: "24px", borderTop: "1px solid rgba(255, 255, 255, 0.06)", paddingTop: "16px" }}>
                   <button
                     onClick={() => {
@@ -305,29 +305,27 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
                   >
                     + Add Question Details
                   </button>
-                  {isCustom && (
-                    <button
-                      onClick={() => {
-                        if (confirm(`Are you sure you want to delete this question?`)) {
-                          onDeleteQuestion(activePaperId);
-                        }
-                      }}
-                      style={{
-                        background: "rgba(239, 68, 68, 0.1)",
-                        border: "1px solid rgba(239, 68, 68, 0.3)",
-                        color: "#EF4444",
-                        borderRadius: "0px",
-                        padding: "6px 12px",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        width: "100%",
-                        fontFamily: "'JetBrains Mono', monospace",
-                      }}
-                    >
-                      Delete Empty Question
-                    </button>
-                  )}
+                  <button
+                    onClick={() => {
+                      if (confirm(`Are you sure you want to delete this question?`)) {
+                        onDeleteQuestion(activePaperId);
+                      }
+                    }}
+                    style={{
+                      background: "rgba(239, 68, 68, 0.1)",
+                      border: "1px solid rgba(239, 68, 68, 0.3)",
+                      color: "#EF4444",
+                      borderRadius: "0px",
+                      padding: "6px 12px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      width: "100%",
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  >
+                    Delete Empty Question
+                  </button>
                 </div>
               )}
             </div>

@@ -30,7 +30,7 @@ const getAvatarGradient = (name) => {
   return `linear-gradient(135deg, ${c1}30 0%, ${c2}15 100%)`;
 };
 
-export default function HomePage({ onOpenIDE, onOpenSubject }) {
+export default function HomePage({ onOpenIDE, onOpenSubject, deletedDefaultIds = new Set() }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(!!supabase);
 
@@ -576,10 +576,15 @@ export default function HomePage({ onOpenIDE, onOpenSubject }) {
   justifyContent: "center",
   marginTop: "64px",
 }}>
-  {SUBJECTS.map(subject => (
+  {SUBJECTS.filter(subject => subject.questions.some(q => !deletedDefaultIds.has(q.id))).map(subject => (
     <button
       key={subject.name}
-      onClick={() => onOpenSubject(subject.name, subject.questions[0]?.id)}
+      onClick={() => {
+        const firstActive = subject.questions.find(q => !deletedDefaultIds.has(q.id));
+        if (firstActive) {
+          onOpenSubject(subject.name, firstActive.id);
+        }
+      }}
       style={{
         background: "transparent",
         border: "1px solid #333333",
