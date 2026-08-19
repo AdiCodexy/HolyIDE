@@ -91,7 +91,9 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
           background: "#0A0A0A",
           flexShrink: 0,
         }}>
-          <span style={{ color: "#D4D4D4", fontSize: "11px", fontWeight: 600 }}>Assignment Question</span>
+          <span style={{ color: "#D4D4D4", fontSize: "11px", fontWeight: 600 }}>
+            {SNIPPETS[activePaperId]?.label || "Assignment Question"}
+          </span>
           <button
             onClick={() => setCollapsed(true)}
             title="Collapse Panel"
@@ -263,7 +265,11 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
                 </div>
               )}
             </>
+          ) : SNIPPETS[activePaperId]?.questionText ? (
+            /* ── Built-in snippet question ── */
+            <BuiltInPanel snippet={SNIPPETS[activePaperId]} />
           ) : (
+            /* ── No question at all ── */
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "40px", gap: "16px", width: "100%" }}>
               <div style={{ color: "#7A7A7A", fontSize: "12px", textAlign: "center" }}>
                 {isSupabaseConfigured
@@ -271,7 +277,6 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
                   : "Supabase not configured. Cannot fetch question."}
               </div>
 
-              {/* Only displays addition buttons if authorized admin email matching verification succeeds */}
               {isSupabaseConfigured && isAdmin && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px", width: "100%", alignItems: "center" }}>
                   <button
@@ -291,27 +296,6 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
                   >
                     + Add Question Details
                   </button>
-                  <button
-                    onClick={() => {
-                      if (confirm(`Are you sure you want to delete this question?`)) {
-                        onDeleteQuestion(activePaperId);
-                      }
-                    }}
-                    style={{
-                      background: "rgba(239, 68, 68, 0.1)",
-                      border: "1px solid rgba(239, 68, 68, 0.3)",
-                      color: "#EF4444",
-                      borderRadius: "0px",
-                      padding: "6px 12px",
-                      fontSize: "11px",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      width: "100%",
-                      fontFamily: "'JetBrains Mono', monospace",
-                    }}
-                  >
-                    Delete Empty Question
-                  </button>
                 </div>
               )}
             </div>
@@ -322,20 +306,117 @@ export default function QuestionPanel({ activePaperId, width, question, loading,
       {showAddModal && (
         <AddQuestionModal
           activePaperId={activePaperId}
-          existingQuestion={question}
           onClose={() => setShowAddModal(false)}
-          onSuccess={(newQuestion) => {
-            const filePath = activePaperId.replace(/\\/g, '/');
-            if (!window.__questionCache) window.__questionCache = {};
-            window.__questionCache[filePath] = newQuestion;
-
-            setQuestion(newQuestion);
-            setShowAddModal(false);
-          }}
+          onSaved={(q) => { setQuestion(q); setShowAddModal(false); }}
         />
       )}
     </>
   );
 }
 
-const collapseToggleStyle = { background: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.1)", color: "#FFFFFF", cursor: "pointer", width: "24px", height: "24px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" };
+// ── Built-in snippet question panel ─────────────────────────────────────────
+function BuiltInPanel({ snippet }) {
+  const [openHints, setOpenHints] = useState([]);
+
+  const toggleHint = (i) =>
+    setOpenHints(prev =>
+      prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]
+    );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+
+      {/* Question description */}
+      {snippet.questionText && (
+        <div style={{
+          color: "#C8C8C8",
+          fontSize: "12px",
+          lineHeight: "1.75",
+          whiteSpace: "pre-wrap",
+          background: "rgba(255,255,255,0.02)",
+          border: "1px solid rgba(255,255,255,0.05)",
+          padding: "14px",
+          borderRadius: "4px",
+        }}>
+          {snippet.questionText}
+        </div>
+      )}
+
+      {/* Collapsible hints */}
+      {snippet.hints && snippet.hints.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+          <div style={{
+            color: "#7A7A7A", fontSize: "10px", fontWeight: 700,
+            textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: "2px",
+          }}>
+            Hints — click to reveal
+          </div>
+          {snippet.hints.map((hint, i) => (
+            <button
+              key={i}
+              onClick={() => toggleHint(i)}
+              style={{
+                background: openHints.includes(i) ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.02)",
+                border: `1px solid ${openHints.includes(i) ? "rgba(251,191,36,0.3)" : "rgba(255,255,255,0.06)"}`,
+                color: openHints.includes(i) ? "#FCD34D" : "#555",
+                padding: "8px 12px",
+                textAlign: "left",
+                cursor: "pointer",
+                fontSize: "11px",
+                fontFamily: "'JetBrains Mono', monospace",
+                borderRadius: "3px",
+                transition: "all 0.15s ease",
+                lineHeight: 1.5,
+                width: "100%",
+              }}
+            >
+              {openHints.includes(i)
+                ? `→ ${hint}`
+                : `Hint ${i + 1} — click to reveal`}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Test cases */}
+      {snippet.testCases && snippet.testCases.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+          <div style={{
+            color: "#7A7A7A", fontSize: "10px", fontWeight: 700,
+            textTransform: "uppercase", letterSpacing: "0.1em",
+          }}>
+            Test Cases — {snippet.testCases.length} total
+          </div>
+          {snippet.testCases.map((tc, idx) => (
+            <div key={idx} style={{
+              background: "rgba(255,255,255,0.02)",
+              border: "1px solid rgba(255,255,255,0.05)",
+              borderRadius: "4px",
+              padding: "10px 12px",
+              fontSize: "11px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "6px",
+            }}>
+              <div style={{ display: "flex", gap: "10px" }}>
+                <span style={{ color: "#555", width: "58px", flexShrink: 0, fontSize: "10px", paddingTop: "1px" }}>INPUT</span>
+                <span style={{ color: "#A0A0A0", fontFamily: "'JetBrains Mono', monospace", whiteSpace: "pre-wrap" }}>
+                  {tc.input || "(none)"}
+                </span>
+              </div>
+              <div style={{ height: "1px", background: "rgba(255,255,255,0.04)" }} />
+              <div style={{ display: "flex", gap: "10px" }}>
+                <span style={{ color: "#555", width: "58px", flexShrink: 0, fontSize: "10px", paddingTop: "1px" }}>EXPECT</span>
+                <span style={{ color: "#34D399", fontFamily: "'JetBrains Mono', monospace", whiteSpace: "pre-wrap" }}>
+                  {tc.expected}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const collapseToggleStyle = { background: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.1)", color: "#FFFFFF", cursor: "pointer", width: "24px", height: "24px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" };

@@ -238,7 +238,17 @@ export default function CodeBlock({ paperId, openTabs = [], onSelectTab, onClose
               writeToTerminal('', 'clear');
               setIsExecuting(true);
               setTestResult(null);
-              const lang = monacoLang === "python" ? "python" : "java";
+
+              // Map Monaco language to execution language
+              const execLangMap = { python: 'python', java: 'java' };
+              const lang = execLangMap[monacoLang];
+
+              if (!lang) {
+                setIsExecuting(false);
+                writeToTerminal(`> Execution not supported for ${monacoLang} files.\n`);
+                setTestResult({ type: 'error', message: `✗ ${monacoLang.toUpperCase()} NOT SUPPORTED` });
+                return;
+              }
 
               if (testCases && testCases.length > 0) {
                 writeToTerminal(`> Executing ${currentFileInfo.filename} against ${testCases.length} test cases...\n`);

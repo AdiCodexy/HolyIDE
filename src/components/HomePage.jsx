@@ -293,7 +293,7 @@ export default function HomePage({ onOpenIDE, onOpenSubject, deletedDefaultIds =
           {/* Navigation Links */}
           <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
             <button
-              onClick={() => document.getElementById('home-section')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
               style={{
                 background: "transparent",
                 border: "none",
@@ -377,122 +377,53 @@ export default function HomePage({ onOpenIDE, onOpenSubject, deletedDefaultIds =
             </button>
           </div>
         </div>
-        {/* Right — Auth + Open IDE */}
+        {/* Right — Auth only (sign-in moved below subjects) */}
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <button
-            onClick={() => setShowSearch(true)}
-            style={{
-              ...navBtnStyle,
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              padding: "6px 12px",
-              height: "32px",
-              fontSize: "10px",
-            }}
-            onMouseEnter={btnHoverIn}
-            onMouseLeave={btnHoverOut}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8"></circle>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            <span>Search</span>
-            <span style={{
-              background: "rgba(255, 255, 255, 0.1)",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              borderRadius: "0px",
-              padding: "1px 4px",
-              fontSize: "8px",
-              marginLeft: "4px",
-              color: "rgba(255,255,255,0.6)",
-              fontFamily: "inherit",
-            }}>
-              /
-            </span>
-          </button>
-          {!loading && (
-            user ? (
-              /* ── Logged in ─────────── */
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-              }}>
-                {avatarUrl && (
-                  <img
-                    src={avatarUrl}
-                    alt={firstName}
-                    referrerPolicy="no-referrer"
-                    style={{
-                      width: "28px",
-                      height: "28px",
-                      border: "1px solid #333333",
-                      objectFit: "cover",
-                      filter: "grayscale(100%)", // B&W Avatar
-                    }}
-                  />
-                )}
-                <span style={{
-                  color: "#888888",
-                  fontSize: "11px",
-                  fontWeight: 500,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.05em",
-                }}>
-                  {firstName}
-                </span>
-                <button
-                  onClick={signOut}
+          {!loading && user && (
+            /* ── Logged in: show avatar + name + logout in nav ── */
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              {avatarUrl && (
+                <img
+                  src={avatarUrl}
+                  alt={firstName}
+                  referrerPolicy="no-referrer"
                   style={{
-                    ...navBtnStyle,
-                    padding: "6px 12px",
-                    fontSize: "10px",
-                    color: "#666666",
-                    borderColor: "#222222",
+                    width: "28px",
+                    height: "28px",
+                    border: "1px solid #333333",
+                    objectFit: "cover",
+                    filter: "grayscale(100%)",
                   }}
-                  onMouseEnter={btnHoverIn}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "#666666";
-                  }}
-                >
-                  Log Out
-                </button>
-              </div>
-            ) : (
-              /* ── Logged out ────────────────── */
+                />
+              )}
+              <span style={{
+                color: "#888888",
+                fontSize: "11px",
+                fontWeight: 500,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}>
+                {firstName}
+              </span>
               <button
-                onClick={signInWithGoogle}
+                onClick={signOut}
                 style={{
                   ...navBtnStyle,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
+                  padding: "6px 12px",
+                  fontSize: "10px",
+                  color: "#666666",
+                  borderColor: "#222222",
                 }}
                 onMouseEnter={btnHoverIn}
-                onMouseLeave={btnHoverOut}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "#666666";
+                }}
               >
-                {/* Monochrome Google Logo */}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z" />
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                Sign in with Google
+                Log Out
               </button>
-            )
+            </div>
           )}
-
-          <button
-            onClick={onOpenIDE}
-            style={navBtnStyle}
-            onMouseEnter={btnHoverIn}
-            onMouseLeave={btnHoverOut}
-          >
-            Open IDE →
-          </button>
         </div>
       </nav>
 
@@ -503,6 +434,22 @@ export default function HomePage({ onOpenIDE, onOpenSubject, deletedDefaultIds =
         padding: "100px 32px 60px",
         textAlign: "center",
       }}>
+
+        {/* ── Welcome greeting (only when signed in) ── */}
+        {user && (
+          <p style={{
+            color: "#888888",
+            fontSize: "11px",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.2em",
+            marginBottom: "24px",
+            animation: "fadeIn 0.6s ease-out",
+          }}>
+            Welcome back, <span style={{ color: "#FFFFFF" }}>{firstName}</span> ✦
+          </p>
+        )}
+
         <h1 style={{
           color: "#FFFFFF",
           fontSize: "clamp(40px, 6vw, 72px)",
@@ -510,7 +457,7 @@ export default function HomePage({ onOpenIDE, onOpenSubject, deletedDefaultIds =
           lineHeight: 1.1,
           margin: 0,
           letterSpacing: "-0.04em",
-          fontFamily: "'Inter', system-ui, sans-serif", // Contrast the mono font
+          fontFamily: "'Inter', system-ui, sans-serif",
         }}>
           Practice the previous <br />
           quiz{" "}
@@ -530,7 +477,7 @@ export default function HomePage({ onOpenIDE, onOpenSubject, deletedDefaultIds =
               question papers
             </span>
             {/* Overlay layer: Solid white block with black text, clipped on scroll */}
-            <span 
+            <span
               ref={blockRef}
               style={{
                 position: "absolute",
@@ -547,7 +494,8 @@ export default function HomePage({ onOpenIDE, onOpenSubject, deletedDefaultIds =
                 pointerEvents: "none",
                 willChange: "clip-path",
                 lineHeight: 1,
-            }}>
+              }}
+            >
               question papers
             </span>
           </span>
@@ -568,51 +516,82 @@ export default function HomePage({ onOpenIDE, onOpenSubject, deletedDefaultIds =
           Independently run by students. Not an official platform.
         </p>
 
-{/* ── Subject pills ────────────────────────────────────────── */ }
-<div style={{
-  display: "flex",
-  flexWrap: "wrap",
-  gap: "16px",
-  justifyContent: "center",
-  marginTop: "64px",
-}}>
-  {SUBJECTS.filter(subject => subject.questions.some(q => !deletedDefaultIds.has(q.id))).map(subject => (
-    <button
-      key={subject.name}
-      onClick={() => {
-        const firstActive = subject.questions.find(q => !deletedDefaultIds.has(q.id));
-        if (firstActive) {
-          onOpenSubject(subject.name, firstActive.id);
-        }
-      }}
-      style={{
-        background: "transparent",
-        border: "1px solid #333333",
-        color: "#FFFFFF",
-        cursor: "pointer",
-        padding: "16px 32px",
-        fontSize: "14px",
-        fontWeight: 600,
-        textTransform: "uppercase",
-        letterSpacing: "0.1em",
-        fontFamily: "'JetBrains Mono', monospace",
-        transition: "all 0.2s ease",
-      }}
-      onMouseEnter={e => {
-        e.currentTarget.style.background = "#FFFFFF";
-        e.currentTarget.style.color = "#000000";
-        e.currentTarget.style.borderColor = "#FFFFFF";
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.background = "transparent";
-        e.currentTarget.style.color = "#FFFFFF";
-        e.currentTarget.style.borderColor = "#333333";
-      }}
-    >
-      {subject.name}
-    </button>
-  ))}
-</div>
+        {/* ── Subject pills ── */}
+        <div style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "16px",
+          justifyContent: "center",
+          marginTop: "64px",
+        }}>
+          {SUBJECTS.filter(subject => subject.questions.some(q => !deletedDefaultIds.has(q.id))).map(subject => (
+            <button
+              key={subject.name}
+              onClick={() => {
+                const firstActive = subject.questions.find(q => !deletedDefaultIds.has(q.id));
+                if (firstActive) {
+                  onOpenSubject(subject.name, firstActive.id);
+                }
+              }}
+              style={{
+                background: "transparent",
+                border: "1px solid #333333",
+                color: "#FFFFFF",
+                cursor: "pointer",
+                padding: "16px 32px",
+                fontSize: "14px",
+                fontWeight: 600,
+                textTransform: "uppercase",
+                letterSpacing: "0.1em",
+                fontFamily: "'JetBrains Mono', monospace",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = "#FFFFFF";
+                e.currentTarget.style.color = "#000000";
+                e.currentTarget.style.borderColor = "#FFFFFF";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "#FFFFFF";
+                e.currentTarget.style.borderColor = "#333333";
+              }}
+            >
+              {subject.name}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Sign in button (below subjects, only when logged out) ── */}
+        {!loading && !user && (
+          <div style={{ marginTop: "40px" }}>
+            <button
+              onClick={signInWithGoogle}
+              style={{
+                ...navBtnStyle,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "12px 28px",
+                fontSize: "12px",
+              }}
+              onMouseEnter={btnHoverIn}
+              onMouseLeave={btnHoverOut}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z" />
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+              Sign in with Google
+            </button>
+            <p style={{ color: "#444444", fontSize: "10px", marginTop: "12px", letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              Sign in to save your progress
+            </p>
+          </div>
+        )}
+
       </div>
 
       <AboutPage />

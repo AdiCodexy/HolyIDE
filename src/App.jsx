@@ -74,6 +74,22 @@ export default function App() {
   const [sidebarRefreshTrigger, setSidebarRefreshTrigger] = useState(0);
   const [deletedDefaultIds, setDeletedDefaultIds] = useState(new Set());
 
+  // ── Auth state ───────────────────────────────────────────────────
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    // Get current session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+    // Listen for sign-in / sign-out events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
   // ── Fetch Deleted Default Question IDs ──────────────────────────
   useEffect(() => {
     async function fetchDeleted() {
@@ -111,7 +127,7 @@ export default function App() {
       }
     }
     fetchDeleted();
-  }, [sidebarRefreshTrigger, user?.id]);
+  }, [sidebarRefreshTrigger, user?.id]); // user is now properly declared above
 
   const handleAddQuestion = useCallback(async (subjectName, cleanName) => {
     if (!isSupabaseConfigured) return;
@@ -517,7 +533,12 @@ export default function App() {
               openTabs={openTabs}
               onSelectTab={setActivePaperId}
               onCloseTab={handleCloseTab}
-              testCases={activeQuestion?.test_cases || []}
+              testCases={
+                // Prefer Supabase test cases; fall back to snippet built-ins
+                (activeQuestion?.test_cases?.length > 0)
+                  ? activeQuestion.test_cases
+                  : (SNIPPETS[activePaperId]?.testCases || [])
+              }
             />
           </div>
 

@@ -14,12 +14,8 @@
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
     "@supabase/supabase-js": "^2.106.0",
-    "cors": "^2.8.6",
-    "express": "^5.2.1",
     "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3"
+    "react-dom": "^19.2.5"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

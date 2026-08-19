@@ -1,141 +1,127 @@
 /**
  * executionEngine.js
- * 
+ *
  * Hybrid Execution Engine for Holy IDE.
- * Routes execution between client-side Pyodide for Python and remote Piston API for compiled languages.
+ * - Python  → Pyodide (client-side WASM, zero latency)
+ * - Java    → onlinecompiler.io REST API (server-side sandbox)
  */
 
+// ── Pyodide ──────────────────────────────────────────────────────────────────
 let pyodideInstance = null;
 let isPyodideLoading = false;
 
-/**
- * Initialize Pyodide asynchronously.
- * Should be called early on page load.
- */
 export async function initPyodide() {
   if (pyodideInstance || isPyodideLoading) return;
   isPyodideLoading = true;
-
   try {
     if (window.loadPyodide) {
       pyodideInstance = await window.loadPyodide({
-        indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/"
+        indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/",
       });
-      console.log("Pyodide loaded successfully.");
+      console.log("✅ Pyodide loaded.");
     } else {
-      console.error("Pyodide script not loaded in index.html");
+      console.error("Pyodide script not found in index.html");
     }
-  } catch (error) {
-    console.error("Failed to load Pyodide:", error);
+  } catch (err) {
+    console.error("Failed to load Pyodide:", err);
   } finally {
     isPyodideLoading = false;
   }
 }
 
+// ── Main entry point ─────────────────────────────────────────────────────────
 /**
- * Execute code using the Hybrid Execution Engine.
- * 
- * @param {string} language - The language to execute (e.g., 'python', 'java').
- * @param {string} code - The source code to execute.
- * @param {string} userInputs - A string containing inputs (e.g. newline separated for multiple inputs).
+ * @param {string} language  - 'python' | 'java'
+ * @param {string} code      - source code to execute
+ * @param {string} userInput - newline-separated stdin values
  * @returns {Promise<{success: boolean, output: string, error: string}>}
  */
-export async function executeCode(language, code, userInputs = "") {
-  if (language === 'python') {
-    return await executePythonWithPyodide(code, userInputs);
-  } else {
-    return await executeWithOnlineCompiler(code, userInputs);
+export async function executeCode(language, code, userInput = "") {
+  if (language === "python") {
+    return executePython(code, userInput);
   }
+  if (language === "java") {
+    return executeJava(code, userInput);
+  }
+  return {
+    success: false,
+    output: "",
+    error: `Language "${language}" is not supported for execution yet.`,
+  };
 }
 
-/**
- * Execute Python code client-side using Pyodide.
- */
-async function executePythonWithPyodide(code, userInputs) {
+// ── Python via Pyodide ────────────────────────────────────────────────────────
+async function executePython(code, userInput) {
   try {
     if (!pyodideInstance) {
       await initPyodide();
-      if (!pyodideInstance) {
-        throw new Error("Pyodide failed to load.");
-      }
+      if (!pyodideInstance) throw new Error("Pyodide failed to initialize.");
     }
 
-    // Split userInputs into an array of lines
-    const inputLines = userInputs ? userInputs.split('\n') : [];
-
-    // Captured output
+    const inputLines = userInput ? userInput.split("\n") : [];
     let stdoutData = [];
 
-    // We will override Pyodide's stdout and stdin
     pyodideInstance.setStdout({
-      batched: (text) => {
-        stdoutData.push(text);
-      }
+      batched: (text) => stdoutData.push(text),
     });
 
     pyodideInstance.setStdin({
       stdin: () => {
-        if (inputLines.length > 0) {
-          // Return the next line of input
-          return inputLines.shift() + "\n";
-        }
-        return "\n"; // EOF or empty if no more inputs
-      }
+        return inputLines.length > 0 ? inputLines.shift() + "\n" : "\n";
+      },
     });
 
-    // Run the code
     await pyodideInstance.runPythonAsync(code);
 
-    return {
-      success: true,
-      output: stdoutData.join("\n"),
-      error: ""
-    };
-  } catch (error) {
-    return {
-      success: false,
-      output: "",
-      error: error.message || String(error)
-    };
+    return { success: true, output: stdoutData.join("\n"), error: "" };
+  } catch (err) {
+    return { success: false, output: "", error: err.message || String(err) };
   }
 }
 
-/**
- * Execute compiled languages via remote REST API (onlinecompiler.io).
- */
-async function executeWithOnlineCompiler(code, userInputs) {
+// ── Java via onlinecompiler.io ────────────────────────────────────────────────
+async function executeJava(code, userInput) {
+  // API key lives in .env.local → never exposed in source
+  const apiKey = import.meta.env.VITE_COMPILER_API_KEY;
+
+  if (!apiKey) {
+    return {
+      success: false,
+      output: "",
+      error:
+        "Compiler API key not set. Add VITE_COMPILER_API_KEY to .env.local",
+    };
+  }
+
   try {
-    const targetUrl = 'https://api.onlinecompiler.io/api/run-code-sync/';
-    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}&reqHeaders=authorization:568f8cc77a30debc0a0fba2c24d2c3ab&reqHeaders=content-type:application/json`;
+    const targetUrl = "https://api.onlinecompiler.io/api/run-code-sync/";
+    // corsproxy.io forwards the request so the browser CORS policy is satisfied
+    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(
+      targetUrl
+    )}&reqHeaders=authorization:${apiKey}&reqHeaders=content-type:application/json`;
 
     const response = await fetch(proxyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain'
-      },
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
       body: JSON.stringify({
-        compiler: 'openjdk-25',
-        code: code,
-        input: userInputs || ""
-      })
+        compiler: "openjdk-25",
+        code,
+        input: userInput || "",
+      }),
     });
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
+      throw new Error(`API error ${response.status}: ${response.statusText}`);
     }
 
     const result = await response.json();
 
     return {
-      success: result.status === 'success',
-      output: result.output,
-      error: result.error
+      success: result.status === "success",
+      output: result.output || "",
+      error: result.error || "",
     };
-  } catch (error) {
-    return {
-      success: false,
-      output: "",
-      error: error.message || String(error)
-    };
+  } catch (err) {
+    return { success: false, output: "", error: err.message || String(err) };
   }
 }
