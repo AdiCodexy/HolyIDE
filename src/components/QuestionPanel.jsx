@@ -336,7 +336,7 @@ function BuiltInPanel({ snippet }) {
           background: "rgba(255,255,255,0.02)",
           border: "1px solid rgba(255,255,255,0.05)",
           padding: "14px",
-          borderRadius: "4px",
+          borderRadius: "0px",
         }}>
           {snippet.questionText}
         </div>
@@ -364,7 +364,7 @@ function BuiltInPanel({ snippet }) {
                 cursor: "pointer",
                 fontSize: "11px",
                 fontFamily: "'JetBrains Mono', monospace",
-                borderRadius: "3px",
+                borderRadius: "0px",
                 transition: "all 0.15s ease",
                 lineHeight: 1.5,
                 width: "100%",
@@ -391,7 +391,7 @@ function BuiltInPanel({ snippet }) {
             <div key={idx} style={{
               background: "rgba(255,255,255,0.02)",
               border: "1px solid rgba(255,255,255,0.05)",
-              borderRadius: "4px",
+              borderRadius: "0px",
               padding: "10px 12px",
               fontSize: "11px",
               display: "flex",
@@ -419,4 +419,4 @@ function BuiltInPanel({ snippet }) {
   );
 }
 
-const collapseToggleStyle = { background: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.1)", color: "#FFFFFF", cursor: "pointer", width: "24px", height: "24px", borderRadius: "6px", display: "flex", alignItems: "center", justifyContent: "center" };
+const collapseToggleStyle = { background: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.1)", color: "#FFFFFF", cursor: "pointer", width: "24px", height: "24px", borderRadius: "0px", display: "flex", alignItems: "center", justifyContent: "center" };

@@ -347,7 +347,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
             fontFamily: "'JetBrains Mono', monospace",
             textTransform: "uppercase",
             letterSpacing: "0.1em",
-            borderRadius: "4px",
+            borderRadius: "0px",
             transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
             display: "flex",
             alignItems: "center",
@@ -372,7 +372,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
           <div style={{
             background: "rgba(255, 255, 255, 0.01)",
             border: "1px solid rgba(255, 255, 255, 0.05)",
-            borderRadius: "16px",
+            borderRadius: "0px",
             padding: "36px",
             display: "flex",
             flexDirection: "column",
@@ -386,7 +386,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: "48px", fontWeight: 300, color: "#FFFFFF",
               filter: "grayscale(100%)",
-              borderRadius: "8px",
+              borderRadius: "0px",
               transition: "all 0.3s ease",
             }}
             onMouseEnter={e => {
@@ -430,7 +430,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
                     background: "transparent", border: "1px solid rgba(255, 255, 255, 0.1)",
                     color: "#CCCCCC", padding: "10px", fontSize: "13px", fontWeight: 400, outline: "none",
                     fontFamily: "inherit", transition: "border-color 0.2s, background-color 0.2s",
-                    borderRadius: "6px",
+                    borderRadius: "0px",
                     resize: "vertical"
                   }}
                   onFocus={e => { e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)"; e.currentTarget.style.background = "rgba(255, 255, 255, 0.01)"; }}
@@ -440,12 +440,12 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
                   <button onClick={handleSave} style={{
                     background: "#FFFFFF", border: "1px solid #FFFFFF", color: "#000000",
                     padding: "12px 32px", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em",
-                    cursor: "pointer", transition: "opacity 0.2s", borderRadius: "4px"
+                    cursor: "pointer", transition: "opacity 0.2s", borderRadius: "0px"
                   }}>Save</button>
                   <button onClick={handleCancel} style={{
                     background: "transparent", border: "1px solid #333333", color: "#888888",
                     padding: "12px 32px", fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.05em",
-                    cursor: "pointer", transition: "color 0.2s", borderRadius: "4px"
+                    cursor: "pointer", transition: "color 0.2s", borderRadius: "0px"
                   }}>Cancel</button>
                 </div>
               </div>
@@ -480,7 +480,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
                       background: "transparent",
                       border: "1px solid rgba(255, 255, 255, 0.15)",
                       color: "#888888",
-                      borderRadius: "6px",
+                      borderRadius: "0px",
                       padding: "8px 16px",
                       fontSize: "11px",
                       textTransform: "uppercase",
@@ -533,7 +533,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
                   style={{
                     background: "rgba(255, 255, 255, 0.02)",
                     border: "1px solid rgba(255, 255, 255, 0.05)",
-                    borderRadius: "10px",
+                    borderRadius: "0px",
                     padding: "16px",
                     display: "flex",
                     flexDirection: "column",
@@ -572,7 +572,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
           <div style={{
             background: "rgba(255, 255, 255, 0.01)",
             border: "1px solid rgba(255, 255, 255, 0.05)",
-            borderRadius: "16px",
+            borderRadius: "0px",
             padding: "36px",
           }}>
             <div style={{
@@ -603,12 +603,12 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
                           <span style={{ color: "#FFFFFF", fontWeight: 600 }}>{percentage}%</span>
                         </div>
                       </div>
-                      <div style={{ height: "6px", background: "rgba(255, 255, 255, 0.05)", width: "100%", borderRadius: "3px", overflow: "hidden" }}>
+                      <div style={{ height: "6px", background: "rgba(255, 255, 255, 0.05)", width: "100%", borderRadius: "0px", overflow: "hidden" }}>
                         <div style={{
                           height: "100%",
                           width: `${percentage}%`,
                           background: "#FFFFFF",
-                          borderRadius: "3px",
+                          borderRadius: "0px",
                           transition: "width 1s cubic-bezier(0.16, 1, 0.3, 1)",
                         }} />
                       </div>
@@ -623,7 +623,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
           <div style={{
             background: "rgba(255, 255, 255, 0.01)",
             border: "1px solid rgba(255, 255, 255, 0.05)",
-            borderRadius: "16px",
+            borderRadius: "0px",
             padding: "36px",
           }}>
             <div style={{
@@ -671,7 +671,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
                       top: "5px",
                       width: "9px",
                       height: "9px",
-                      borderRadius: "50%",
+                      borderRadius: "0px",
                       border: "1px solid #FFFFFF",
                       background: "#000000",
                       zIndex: 2
@@ -685,7 +685,7 @@ export default function ProfilePage({ onClose, userId = null, userName = null })
                           background: "rgba(255, 255, 255, 0.06)",
                           color: "#FFFFFF",
                           padding: "2px 6px",
-                          borderRadius: "4px",
+                          borderRadius: "0px",
                           fontWeight: 600,
                           letterSpacing: "0.05em"
                         }}>
